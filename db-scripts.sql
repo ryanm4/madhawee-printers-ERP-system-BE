@@ -13,6 +13,7 @@ CREATE TABLE `erp-madhawi-db`.`quotations` (
   `created_by` VARCHAR(45) NULL,
   `updated_on` DATETIME NULL,
   `updated_by` VARCHAR(45) NULL,
+  `status` VARCHAR(45) NULL,
   PRIMARY KEY (`quote_id`),
   UNIQUE INDEX `quote_id_UNIQUE` (`quote_id` ASC) VISIBLE);
 

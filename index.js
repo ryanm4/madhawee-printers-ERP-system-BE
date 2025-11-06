@@ -3,6 +3,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const connection = require('./sql-connection');
 
+const quoteRouter = require('./routes/quote-routes/quote-routes');
+
 dotenv.config({ path: './config.env' });
 const port = process.env.PORT || 3000;
 const app = express();
@@ -40,3 +42,4 @@ app.use((err, req, res, next) => {
     }); 
 })
  
+app.use('/api/v1/quotes', quoteRouter);
