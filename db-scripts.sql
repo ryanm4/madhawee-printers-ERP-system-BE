@@ -93,3 +93,22 @@ CREATE TABLE `erp-madhawi-db`.`main_inventory` (
   `item_description` VARCHAR(45) NULL,
   `quantity` INT NOT NULL,
   PRIMARY KEY (`item_id`));
+
+
+CREATE TABLE `erp-madhawi-db`.`customers` (
+  `customer_id` INT NOT NULL AUTO_INCREMENT,
+  `company_name` VARCHAR(45) NOT NULL,
+  `address` VARCHAR(45) NULL,
+  `phone` VARCHAR(45) NULL,
+  `email` VARCHAR(45) NULL,
+  `vat_type` VARCHAR(45) NULL,
+  `vat_no` VARCHAR(45) NULL,
+  `logo_url` VARCHAR(45) NULL,
+  `contact_person` VARCHAR(45) NULL,
+  `contact_person_email` VARCHAR(45) NULL,
+  `contact_person_phone` VARCHAR(45) NULL,
+  `created_on` DATETIME NULL,
+  `created_by` VARCHAR(45) NULL,
+  `updated_on` DATETIME NULL,
+  `updated_by` VARCHAR(45) NULL,
+  PRIMARY KEY (`customer_id`));
