@@ -41,6 +41,7 @@ CREATE TABLE `erp-madhawi-db`.`purchase_orders` (
   `created_by` VARCHAR(45) NULL,
   `updated_on` DATETIME NULL,
   `updated_by` VARCHAR(45) NULL,
+  `status` VARCHAR(45) NULL,
   PRIMARY KEY (`po_id`));
 
 CREATE TABLE `erp-madhawi-db`.`jobs` (

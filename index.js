@@ -5,6 +5,7 @@ const connection = require("./sql-connection");
 
 const quoteRouter = require("./routes/quote-routes/quote-routes");
 const customerRouter = require("./routes/customers/customers-route");
+const poRouter = require("./routes/purchase-order-routes/po-route");
 
 dotenv.config({ path: "./config.env" });
 const port = process.env.PORT || 3000;
@@ -50,3 +51,4 @@ app.use((err, req, res, next) => {
 
 app.use("/api/v1/quotes", quoteRouter);
 app.use("/api/v1/customers", customerRouter);
+app.use("/api/v1/purchase_orders", poRouter);
