@@ -112,4 +112,5 @@ CREATE TABLE `erp-madhawi-db`.`customers` (
   `created_by` VARCHAR(45) NULL,
   `updated_on` DATETIME NULL,
   `updated_by` VARCHAR(45) NULL,
+  `status` VARCHAR(45) NULL,
   PRIMARY KEY (`customer_id`));
