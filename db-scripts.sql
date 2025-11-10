@@ -50,7 +50,7 @@ CREATE TABLE `erp-madhawi-db`.`jobs` (
   `job_open_date` DATETIME NULL,
   `product_type` VARCHAR(45) NULL,
   `paper_type_id` INT NULL,
-  `quantity` VARCHAR(45) NULL,
+  `quantity` INT NULL,
   `coating` VARCHAR(45) NULL,
   `packing_date` DATETIME NULL,
   `expiry_date` DATETIME NULL,
@@ -62,14 +62,15 @@ CREATE TABLE `erp-madhawi-db`.`jobs` (
   PRIMARY KEY (`job_id`));
 
 CREATE TABLE `erp-madhawi-db`.`job_materials` (
-  `job_id` INT NOT NULL AUTO_INCREMENT,
+  `job_material_id` INT NOT NULL,
+  `job_id` INT NOT NULL,
   `material_type` VARCHAR(45) NULL,
   `material_name` VARCHAR(45) NULL,
   `material_description` VARCHAR(45) NULL,
   `quantity` VARCHAR(45) NULL,
   `status` VARCHAR(45) NULL,
   `remarks` VARCHAR(45) NULL,
-  PRIMARY KEY (`job_id`));
+  PRIMARY KEY (`job_material_id`));
 
 CREATE TABLE `erp-madhawi-db`.`quote_types` (
   `type_id` INT NOT NULL AUTO_INCREMENT,
@@ -101,7 +102,7 @@ CREATE TABLE `erp-madhawi-db`.`main_inventory` (
 
 CREATE TABLE `erp-madhawi-db`.`customers` (
   `customer_id` INT NOT NULL AUTO_INCREMENT,
-  `company_name` VARCHAR(45) NOT NULL,
+  `company_name` VARCHAR(255) NOT NULL,
   `address` VARCHAR(45) NULL,
   `phone` VARCHAR(45) NULL,
   `email` VARCHAR(45) NULL,

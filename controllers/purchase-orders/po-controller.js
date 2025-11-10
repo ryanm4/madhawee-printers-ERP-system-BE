@@ -40,19 +40,29 @@ exports.getPObyId = (req, res, next) => {
       j.job_open_date,
       j.product_type,
       j.paper_type_id,
-      j.quantity,
+      j.quantity AS job_quantity,
+      j.completed_qty AS complete_quantity,
       j.coating,
       j.packing_date,
       j.expiry_date,
       j.description,
       j.artwork,
       j.remarks,
-      j.status AS job_status
+      j.status AS job_status,
+      jm.job_material_id,
+      jm.material_type,
+      jm.material_name,
+      jm.material_description,
+      jm.quantity AS material_quantity,
+      jm.status AS material_status,
+      jm.remarks AS material_remarks
     FROM purchase_orders p
     LEFT JOIN quotations q ON p.quote_id = q.quote_id
     LEFT JOIN customers c ON q.customer_id = c.customer_id
     LEFT JOIN jobs j ON p.po_id = j.po_id
-    WHERE p.po_id = ?;`;
+    LEFT JOIN job_materials jm ON j.job_id = jm.job_id
+    WHERE p.po_id = ?;
+  `;
 
   connection.query(query, [poId], (err, results) => {
     if (err) {
@@ -69,10 +79,17 @@ exports.getPObyId = (req, res, next) => {
 
     const po = {
       po_id: results[0].po_id,
-      po_number: results[0].po_number,
+      quote_id: results[0].quote_id,
+      po_type_id: results[0].po_type_id,
+      batch_ref: results[0].batch_ref,
       po_date: results[0].po_date,
-      customer_id: results[0].customer_id,
-      total_amount: results[0].total_amount,
+      delivery_date: results[0].delivery_date,
+      approved_on: results[0].approved_on,
+      approved_by: results[0].approved_by,
+      created_on: results[0].created_on,
+      created_by: results[0].created_by,
+      updated_on: results[0].updated_on,
+      updated_by: results[0].updated_by,
       po_status: results[0].po_status,
       customer: {
         name: results[0].customer_name,
@@ -80,14 +97,22 @@ exports.getPObyId = (req, res, next) => {
         phone: results[0].customer_phone,
         email: results[0].customer_email,
       },
-      jobs: results
-        .filter((r) => r.job_id !== null)
-        .map((r) => ({
+      jobs: [],
+    };
+
+    const jobMap = {};
+
+    results.forEach((r) => {
+      if (!r.job_id) return;
+
+      if (!jobMap[r.job_id]) {
+        jobMap[r.job_id] = {
           job_id: r.job_id,
           job_open_date: r.job_open_date,
           product_type: r.product_type,
           paper_type_id: r.paper_type_id,
-          quantity: r.quantity,
+          quantity: r.job_quantity,
+          complete_quantity: r.complete_quantity,
           coating: r.coating,
           packing_date: r.packing_date,
           expiry_date: r.expiry_date,
@@ -95,8 +120,29 @@ exports.getPObyId = (req, res, next) => {
           artwork: r.artwork,
           remarks: r.remarks,
           status: r.job_status,
-        })),
-    };
+          materials: {}, // Grouped by material_type
+        };
+        po.jobs.push(jobMap[r.job_id]);
+      }
+
+      if (r.job_material_id) {
+        const type = r.material_type || "Unknown";
+        if (!jobMap[r.job_id].materials[type]) {
+          jobMap[r.job_id].materials[type] = {
+            material_type: type,
+            items: [],
+          };
+        }
+
+        jobMap[r.job_id].materials[type].items.push({
+          material_name: r.material_name,
+          material_description: r.material_description,
+          quantity: r.material_quantity,
+          status: r.material_status,
+          remarks: r.material_remarks,
+        });
+      }
+    });
 
     res.status(200).json({
       status: "success",
