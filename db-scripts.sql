@@ -1,7 +1,7 @@
 CREATE SCHEMA `erp-madhawi-db` ;
 
 CREATE TABLE `erp-madhawi-db`.`quotations` (
-  `quote_id` INT NOT NULL AUTO_INCREMENT,
+  VARCHAR(45) NOT NULL,
   `customer_id` INT NOT NULL,
   `type_id` INT NOT NULL,
   `delivery_days` VARCHAR(45) NULL,
@@ -29,7 +29,7 @@ CREATE TABLE `erp-madhawi-db`.`quote_items` (
   PRIMARY KEY (`item_id`));
 
 CREATE TABLE `erp-madhawi-db`.`purchase_orders` (
-  `po_id` INT NOT NULL AUTO_INCREMENT,
+  `po_id` INT NOT NULL,
   `quote_id` INT NOT NULL,
   `po_type_id` INT NULL,
   `batch_ref` VARCHAR(45) NULL,
@@ -57,6 +57,8 @@ CREATE TABLE `erp-madhawi-db`.`jobs` (
   `description` VARCHAR(45) NULL,
   `artwork` VARCHAR(45) NULL,
   `remarks` VARCHAR(45) NULL,
+  `status` VARCHAR(45) NULL,
+  `completed_qty` INT ZEROFILL NOT NULL
   PRIMARY KEY (`job_id`));
 
 CREATE TABLE `erp-madhawi-db`.`job_materials` (
