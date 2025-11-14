@@ -1,7 +1,7 @@
 CREATE SCHEMA `erp-madhawi-db` ;
 
 CREATE TABLE `erp-madhawi-db`.`quotations` (
-  VARCHAR(45) NOT NULL,
+  `quote_id` VARCHAR(45) NOT NULL,
   `customer_id` INT NOT NULL,
   `type_id` INT NOT NULL,
   `delivery_days` VARCHAR(45) NULL,
