@@ -7,6 +7,10 @@ CREATE TABLE `erp-madhawi-db`.`quotations` (
   `delivery_days` VARCHAR(45) NULL,
   `tax_type_id` INT NOT NULL,
   `currency` VARCHAR(45) NULL,
+  `sub_total` VARCHAR(45) NULL,
+  `no_of_items` VARCHAR(45) NULL,
+  `total_without_tax` VARCHAR(45) NULL,
+  `net_total` VARCHAR(45) NULL
   `contact_person` VARCHAR(45) NULL,
   `notes` VARCHAR(45) NULL,
   `created_on` DATETIME NULL,
