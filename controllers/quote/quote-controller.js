@@ -389,3 +389,70 @@ exports.deleteQuote = (req, res, next) => {
     });
   });
 };
+
+exports.getQuotesByCustomerId = (req, res, next) => {
+  const customerId = req.params.customerId;
+
+  // 1️⃣ Get all quotations for this customer
+  const quoteQuery = `
+    SELECT *
+    FROM quotations
+    WHERE customer_id = ?
+      AND status = 'Created'
+    ORDER BY created_on DESC
+  `;
+
+  connection.query(quoteQuery, [customerId], (err, quotes) => {
+    if (err) {
+      console.error("Error fetching quotations:", err);
+      return next(err);
+    }
+
+    if (quotes.length === 0) {
+      return res.status(200).json({
+        status: "success",
+        data: []
+      });
+    }
+
+    const quoteIds = quotes.map(q => q.quote_id);
+
+    // 2️⃣ Fetch all quote_items for these quoteIds
+    const itemQuery = `
+      SELECT *
+      FROM quote_items
+      WHERE quote_id IN (?)
+    `;
+
+    connection.query(itemQuery, [quoteIds], (err, items) => {
+      if (err) {
+        console.error("Error fetching quote items:", err);
+        return next(err);
+      }
+
+      // 3️⃣ Attach items to the respective quote
+      const quoteMap = {};
+
+      quotes.forEach(q => {
+        quoteMap[q.quote_id] = {
+          ...q,
+          items: []
+        };
+      });
+
+      items.forEach(item => {
+        if (quoteMap[item.quote_id]) {
+          quoteMap[item.quote_id].items.push(item);
+        }
+      });
+
+      // Convert map to array
+      const responseArray = Object.values(quoteMap);
+
+      res.status(200).json({
+        status: "success",
+        data: responseArray
+      });
+    });
+  });
+};

@@ -25,6 +25,7 @@ exports.getPObyId = (req, res, next) => {
       p.batch_ref,
       p.po_date,
       p.delivery_date,
+      p.TC_E_PR_No,
       p.approved_on,
       p.approved_by,
       p.created_on,
@@ -84,6 +85,7 @@ exports.getPObyId = (req, res, next) => {
       batch_ref: results[0].batch_ref,
       po_date: results[0].po_date,
       delivery_date: results[0].delivery_date,
+      TC_E_PR_No: results[0].TC_E_PR_No,
       approved_on: results[0].approved_on,
       approved_by: results[0].approved_by,
       created_on: results[0].created_on,
@@ -147,6 +149,163 @@ exports.getPObyId = (req, res, next) => {
     res.status(200).json({
       status: "success",
       data: po,
+    });
+  });
+};
+
+
+exports.createPurchaseOrder = (req, res, next) => {
+  const {
+    po_id,
+    quote_id,
+    po_type_id,
+    batch_ref,
+    po_date,
+    delivery_date,
+    TC_E_PR_No,
+    approved_on,
+    approved_by,
+    created_by,
+    updated_by,
+    status
+  } = req.body;
+
+  const query = `
+    INSERT INTO purchase_orders (
+      po_id, quote_id, po_type_id, batch_ref, po_date, delivery_date,TC_E_PR_No,
+      approved_on, approved_by, created_on, created_by, updated_on, updated_by, status
+    ) VALUES (
+      ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?
+    )
+  `;
+
+  const values = [
+    po_id,
+    quote_id,
+    po_type_id,
+    batch_ref,
+    po_date,
+    delivery_date,
+    TC_E_PR_No,
+    approved_on,
+    approved_by,
+    created_by,
+    updated_by,
+    status
+  ];
+
+  connection.query(query, values, (err, result) => {
+    if (err) {
+      console.error("Error inserting purchase order:", err);
+      return next(err);
+    }
+
+    res.status(201).json({
+      status: "success",
+      message: "Purchase Order created successfully",
+      // data: {
+      //   po_id,
+      //   quote_id
+      // }
+    });
+  });
+};
+
+exports.updatePurchaseOrder = (req, res, next) => {
+  const poId = req.params.poId; // existing po_id from URL
+
+  const {
+    quote_id,
+    po_type_id,
+    batch_ref,
+    po_date,
+    delivery_date,
+    TC_E_PR_No,
+    approved_on,
+    approved_by,
+    updated_by,
+    status
+  } = req.body;
+
+  const toMysqlDatetime = (dateString) => {
+    if (!dateString) return null;
+    return new Date(dateString).toISOString().slice(0, 19).replace("T", " ");
+  };
+
+  const query = `
+    UPDATE purchase_orders
+    SET
+      quote_id = ?,
+      po_type_id = ?,
+      batch_ref = ?,
+      po_date = ?,
+      delivery_date = ?,
+      TC_E_PR_No = ?,
+      approved_on = ?,
+      approved_by = ?,
+      updated_on = NOW(),
+      updated_by = ?,
+      status = ?
+    WHERE po_id = ?
+  `;
+
+  const values = [
+    quote_id,
+    po_type_id,
+    batch_ref,
+    toMysqlDatetime(po_date),
+    toMysqlDatetime(delivery_date),
+    TC_E_PR_No,
+    toMysqlDatetime(approved_on),
+    approved_by,
+    updated_by,
+    status,
+    poId
+  ];
+
+  connection.query(query, values, (err, result) => {
+    if (err) {
+      console.error("Error updating purchase order:", err);
+      return next(err);
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        status: "fail",
+        message: "Purchase order not found"
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "Purchase order updated successfully"
+    });
+  });
+};
+
+
+
+exports.deletePurchaseOrder = (req, res, next) => {
+  const poId = req.params.poId;
+
+  const query = `DELETE FROM purchase_orders WHERE po_id = ?`;
+
+  connection.query(query, [poId], (err, result) => {
+    if (err) {
+      console.error("Error deleting purchase order:", err);
+      return next(err);
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        status: "fail",
+        message: "Purchase order not found"
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "Purchase order deleted successfully"
     });
   });
 };

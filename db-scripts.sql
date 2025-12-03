@@ -39,6 +39,7 @@ CREATE TABLE `erp-madhawi-db`.`purchase_orders` (
   `batch_ref` VARCHAR(45) NULL,
   `po_date` DATETIME NULL,
   `delivery_date` DATETIME NULL,
+  `TC_E_PR_No` VARCHAR(45) NULL
   `approved_on` DATETIME NULL,
   `approved_by` VARCHAR(45) NULL,
   `created_on` DATETIME NULL,
