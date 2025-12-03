@@ -23,7 +23,7 @@ CREATE TABLE `erp-madhawi-db`.`quotations` (
 
 CREATE TABLE `erp-madhawi-db`.`quote_items` (
   `item_id` INT NOT NULL AUTO_INCREMENT,
-  `quote_id` INT NOT NULL,
+  `quote_id` VARCHAR(45) NOT NULL,
   `item_category` VARCHAR(45) NULL,
   `item_description` VARCHAR(45) NULL,
   `item_qty` INT NULL,
