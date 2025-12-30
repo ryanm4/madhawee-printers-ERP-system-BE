@@ -33,6 +33,7 @@ exports.getPObyId = (req, res, next) => {
       p.updated_on,
       p.updated_by,
       p.status AS po_status,
+      p.customer_po AS customer_po,
       c.company_name AS customer_name,
       c.address AS customer_address,
       c.phone AS customer_phone,
@@ -93,6 +94,7 @@ exports.getPObyId = (req, res, next) => {
       updated_on: results[0].updated_on,
       updated_by: results[0].updated_by,
       po_status: results[0].po_status,
+      customer_po: results[0].customer_po,
       customer: {
         name: results[0].customer_name,
         address: results[0].customer_address,
@@ -167,15 +169,16 @@ exports.createPurchaseOrder = (req, res, next) => {
     approved_by,
     created_by,
     updated_by,
-    status
+    status,
+    customer_po
   } = req.body;
 
   const query = `
     INSERT INTO purchase_orders (
       po_id, quote_id, po_type_id, batch_ref, po_date, delivery_date,TC_E_PR_No,
-      approved_on, approved_by, created_on, created_by, updated_on, updated_by, status
+      approved_on, approved_by, created_on, created_by, updated_on, updated_by, status,customer_po
     ) VALUES (
-      ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?
+      ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?
     )
   `;
 
@@ -191,7 +194,8 @@ exports.createPurchaseOrder = (req, res, next) => {
     approved_by,
     created_by,
     updated_by,
-    status
+    status,
+    customer_po
   ];
 
   connection.query(query, values, (err, result) => {
@@ -224,7 +228,8 @@ exports.updatePurchaseOrder = (req, res, next) => {
     approved_on,
     approved_by,
     updated_by,
-    status
+    status,
+    customer_po
   } = req.body;
 
   const toMysqlDatetime = (dateString) => {
@@ -245,7 +250,8 @@ exports.updatePurchaseOrder = (req, res, next) => {
       approved_by = ?,
       updated_on = NOW(),
       updated_by = ?,
-      status = ?
+      status = ?,
+      customer_po = ?
     WHERE po_id = ?
   `;
 
@@ -260,6 +266,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
     approved_by,
     updated_by,
     status,
+    customer_po,
     poId
   ];
 

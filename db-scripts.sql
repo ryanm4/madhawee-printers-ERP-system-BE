@@ -47,14 +47,15 @@ CREATE TABLE `erp-madhawi-db`.`purchase_orders` (
   `updated_on` DATETIME NULL,
   `updated_by` VARCHAR(45) NULL,
   `status` VARCHAR(45) NULL,
+  `customer_po` VARCHAR(45) NULL
   PRIMARY KEY (`po_id`));
 
 CREATE TABLE `erp-madhawi-db`.`jobs` (
   `job_id` INT NOT NULL AUTO_INCREMENT,
-  `po_id` INT NOT NULL,
+  `po_id` INT NULL,
   `job_open_date` DATETIME NULL,
   `product_type` VARCHAR(45) NULL,
-  `paper_type_id` INT NULL,
+  `paper_type_id` VARCHAR(45) NULL,
   `quantity` INT NULL,
   `coating` VARCHAR(45) NULL,
   `packing_date` DATETIME NULL,
@@ -63,7 +64,8 @@ CREATE TABLE `erp-madhawi-db`.`jobs` (
   `artwork` VARCHAR(45) NULL,
   `remarks` VARCHAR(45) NULL,
   `status` VARCHAR(45) NULL,
-  `completed_qty` INT ZEROFILL NOT NULL
+  `completed_qty` INT ZEROFILL NOT NULL,
+  `wastage` VARCHAR(45) NULL
   PRIMARY KEY (`job_id`));
 
 CREATE TABLE `erp-madhawi-db`.`job_materials` (
@@ -123,3 +125,18 @@ CREATE TABLE `erp-madhawi-db`.`customers` (
   `updated_by` VARCHAR(45) NULL,
   `status` VARCHAR(45) NULL,
   PRIMARY KEY (`customer_id`));
+
+
+  CREATE TABLE `erp-madhawi-db`.`dispatch` (
+  `dispatch_id` VARCHAR(45) NOT NULL,
+  `customer_id` VARCHAR(45) NULL,
+  `dispatch_note` VARCHAR(45) NULL,
+  `dispatch_date` DATETIME NULL,
+  `dispatch_qty` VARCHAR(45) NULL,
+  `no_of_bundles` VARCHAR(45) NULL,
+  `description` VARCHAR(45) NULL,
+  `created_by` VARCHAR(45) NULL,
+  `created_on` DATETIME NULL,
+  `updated_by` VARCHAR(45) NULL,
+  `updated_on` DATETIME NULL,
+  PRIMARY KEY (`dispatch_id`));

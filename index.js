@@ -7,6 +7,7 @@ const quoteRouter = require("./routes/quote-routes/quote-routes");
 const customerRouter = require("./routes/customers/customers-route");
 const poRouter = require("./routes/purchase-order-routes/po-route");
 const jobsRouter = require("./routes/jobs/jobs-route");
+const dispatchRouter = require("./routes/dispatch/dispatch-route");
 
 dotenv.config({ path: "./config.env" });
 const port = process.env.PORT || 3000;
@@ -42,15 +43,18 @@ app.use((req, res, next) => {
 });
 
 app.use((err, req, res, next) => {
-  err.statusCode = err.statusCode || 500;
-  err.status = err.status || "error";
-  err.status(err.statusCode).json({
-    status: err.status,
-    message: err.message,
+  console.error(err.stack || err);
+
+  const statusCode = err.statusCode || err.status || 500;
+
+  res.status(statusCode).json({
+    message: err.message || "Internal Server Error"
   });
 });
+
 
 app.use("/api/v1/quotes", quoteRouter);
 app.use("/api/v1/customers", customerRouter);
 app.use("/api/v1/purchase_orders", poRouter);
 app.use("/api/v1/jobs", jobsRouter);
+app.use("/api/v1/dispatch", dispatchRouter);

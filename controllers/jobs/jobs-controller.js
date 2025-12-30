@@ -18,9 +18,18 @@ exports.getJobsByPOId = (req, res, next) => {
       });
     }
 
+    // ✅ Always return jobs as an array
+    // ✅ Convert paper_type_id to array
+    const jobs = results.map(job => ({
+      ...job,
+      paper_type_id: job.paper_type_id
+        ? job.paper_type_id.toString().split(",").map(id => Number(id))
+        : []
+    }));
+
     res.status(200).json({
       status: "success",
-      data: results.length === 1 ? results[0] : results,
+      data: jobs,
     });
   });
 };
