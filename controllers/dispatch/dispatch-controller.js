@@ -74,19 +74,32 @@ exports.getDispatchById = (req, res, next) => {
 
   const query = `
     SELECT
-      dispatch_id,
-      customer_id,
-      dispatch_note,
-      dispatch_date,
-      dispatch_qty,
-      no_of_bundles,
-      description,
-      created_by,
-      created_on,
-      updated_by,
-      updated_on
-    FROM dispatch
-    WHERE dispatch_id = ?
+      d.dispatch_id,
+      d.dispatch_note,
+      d.dispatch_date,
+      d.dispatch_qty,
+      d.no_of_bundles,
+      d.description,
+      d.created_by,
+      d.created_on,
+      d.updated_by,
+      d.updated_on,
+
+      c.customer_id,
+      c.company_name,
+      c.address,
+      c.phone,
+      c.email,
+      c.vat_type,
+      c.vat_no,
+      c.logo_url,
+      c.contact_person,
+      c.contact_person_email,
+      c.contact_person_phone
+    FROM dispatch d
+    LEFT JOIN customers c
+      ON d.customer_id = c.customer_id
+    WHERE d.dispatch_id = ?
   `;
 
   connection.query(query, [dispatch_id], (err, results) => {
@@ -101,11 +114,41 @@ exports.getDispatchById = (req, res, next) => {
       });
     }
 
+    const row = results[0];
+
     res.json({
-      data: results[0]
+      data: {
+        dispatch_id: row.dispatch_id,
+        dispatch_note: row.dispatch_note,
+        dispatch_date: row.dispatch_date,
+        dispatch_qty: row.dispatch_qty,
+        no_of_bundles: row.no_of_bundles,
+        description: row.description,
+        created_by: row.created_by,
+        created_on: row.created_on,
+        updated_by: row.updated_by,
+        updated_on: row.updated_on,
+
+        customer: row.customer_id
+          ? {
+              customer_id: row.customer_id,
+              company_name: row.company_name,
+              address: row.address,
+              phone: row.phone,
+              email: row.email,
+              vat_type: row.vat_type,
+              vat_no: row.vat_no,
+              logo_url: row.logo_url,
+              contact_person: row.contact_person,
+              contact_person_email: row.contact_person_email,
+              contact_person_phone: row.contact_person_phone
+            }
+          : null
+      }
     });
   });
 };
+
 
 
 
