@@ -8,6 +8,7 @@ const customerRouter = require("./routes/customers/customers-route");
 const poRouter = require("./routes/purchase-order-routes/po-route");
 const jobsRouter = require("./routes/jobs/jobs-route");
 const dispatchRouter = require("./routes/dispatch/dispatch-route");
+const inventoryRouter = require("./routes/inventory/inventory-route");
 
 dotenv.config({ path: "./config.env" });
 const port = process.env.PORT || 3000;
@@ -58,3 +59,4 @@ app.use("/api/v1/customers", customerRouter);
 app.use("/api/v1/purchase_orders", poRouter);
 app.use("/api/v1/jobs", jobsRouter);
 app.use("/api/v1/dispatch", dispatchRouter);
+app.use("/api/v1/inventory", inventoryRouter);

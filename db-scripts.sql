@@ -101,9 +101,14 @@ CREATE TABLE `erp-madhawi-db`.`products_types` (
 
 CREATE TABLE `erp-madhawi-db`.`main_inventory` (
   `item_id` INT NOT NULL AUTO_INCREMENT,
-  `item_name` VARCHAR(45) NOT NULL,
-  `item_description` VARCHAR(45) NULL,
-  `quantity` INT NOT NULL,
+  `item_category` VARCHAR(45) NULL,
+  `item_sub_category` VARCHAR(45) NULL,
+  `item_name` VARCHAR(45) NULL,
+  `quantity` VARCHAR(45) NULL,
+  `unit_of_measure` VARCHAR(45) NULL,
+  `reorder_level` VARCHAR(45) NULL,
+  `status` VARCHAR(45) NULL,
+  `remarks` VARCHAR(45) NULL,
   PRIMARY KEY (`item_id`));
 
 
