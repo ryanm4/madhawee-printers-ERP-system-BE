@@ -6,4 +6,6 @@ const jobsRouter = express.Router();
 
 jobsRouter.route("/:poId").get(jobsController.getJobsByPOId);
 
+jobsRouter.route("/").get(jobsController.getAllJobs);
+
 module.exports = jobsRouter;
