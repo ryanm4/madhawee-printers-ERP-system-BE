@@ -3,7 +3,7 @@ const poController = require("../../controllers/purchase-orders/po-controller");
 const poRouter = express.Router();
 
 poRouter.route("/")
-    .get(poController.getAllPO)
+    .get(poController.getAllPOWithJobs)
     .post(poController.createPurchaseOrder);
 poRouter.route("/:poId")
     .get(poController.getPObyId)

@@ -1,19 +1,86 @@
 const connection = require("../../sql-connection");
 
-exports.getAllPO = (req, res, next) => {
-  const query = `SELECT * FROM \`erp-madhawi-db\`.\`purchase_orders\`;`;
+exports.getAllPOWithJobs = (req, res, next) => {
+  const query = `
+    SELECT
+      po.po_id,
+      po.quote_id,
+      po.po_type_id,
+      po.batch_ref,
+      po.po_date,
+      po.delivery_date,
+      po.TC_E_PR_No,
+      po.status AS po_status,
+
+      j.job_id,
+      j.job_open_date,
+      j.product_type,
+      j.paper_type_id,
+      j.quantity,
+      j.coating,
+      j.packing_date,
+      j.expiry_date,
+      j.description,
+      j.artwork,
+      j.remarks,
+      j.status AS job_status,
+      j.completed_qty,
+      j.wastage
+    FROM \`erp-madhawi-db\`.purchase_orders po
+    INNER JOIN \`erp-madhawi-db\`.jobs j
+      ON j.po_id = po.po_id
+    ORDER BY po.po_id, j.job_id
+  `;
+
   connection.query(query, (err, results) => {
     if (err) {
-      console.error("Error fetching purchase orders:", err);
+      console.error("Error fetching POs with jobs:", err);
       return next(err);
-    } else {
-      res.status(200).json({
-        status: "success",
-        data: results,
-      });
     }
+
+    // Group jobs under each PO
+    const poMap = {};
+
+    results.forEach(row => {
+      if (!poMap[row.po_id]) {
+        poMap[row.po_id] = {
+          po_id: row.po_id,
+          quote_id: row.quote_id,
+          po_type_id: row.po_type_id,
+          batch_ref: row.batch_ref,
+          po_date: row.po_date,
+          delivery_date: row.delivery_date,
+          TC_E_PR_No: row.TC_E_PR_No,
+          status: row.po_status,
+          jobs: []
+        };
+      }
+
+      poMap[row.po_id].jobs.push({
+        job_id: row.job_id,
+        job_open_date: row.job_open_date,
+        product_type: row.product_type,
+        paper_type_id: row.paper_type_id,
+        quantity: row.quantity,
+        coating: row.coating,
+        packing_date: row.packing_date,
+        expiry_date: row.expiry_date,
+        description: row.description,
+        artwork: row.artwork,
+        remarks: row.remarks,
+        status: row.job_status,
+        completed_qty: row.completed_qty,
+        wastage: row.wastage
+      });
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: Object.values(poMap)
+    });
   });
 };
+
 
 exports.getPObyId = (req, res, next) => {
   const poId = req.params.poId;
