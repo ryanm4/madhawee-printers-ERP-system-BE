@@ -41,7 +41,7 @@ exports.getAllPOWithJobs = (req, res, next) => {
     // Group jobs under each PO
     const poMap = {};
 
-    results.forEach(row => {
+    results.forEach((row) => {
       if (!poMap[row.po_id]) {
         poMap[row.po_id] = {
           po_id: row.po_id,
@@ -52,7 +52,7 @@ exports.getAllPOWithJobs = (req, res, next) => {
           delivery_date: row.delivery_date,
           TC_E_PR_No: row.TC_E_PR_No,
           status: row.po_status,
-          jobs: []
+          jobs: [],
         };
       }
 
@@ -70,17 +70,16 @@ exports.getAllPOWithJobs = (req, res, next) => {
         remarks: row.remarks,
         status: row.job_status,
         completed_qty: row.completed_qty,
-        wastage: row.wastage
+        wastage: row.wastage,
       });
     });
 
     res.status(200).json({
       status: "success",
-      data: Object.values(poMap)
+      data: Object.values(poMap),
     });
   });
 };
-
 
 exports.getPObyId = (req, res, next) => {
   const poId = req.params.poId;
@@ -102,6 +101,7 @@ exports.getPObyId = (req, res, next) => {
       p.status AS po_status,
       p.customer_po AS customer_po,
       c.company_name AS customer_name,
+      c.customer_type AS customer_type,
       c.address AS customer_address,
       c.phone AS customer_phone,
       c.email AS customer_email,
@@ -222,7 +222,6 @@ exports.getPObyId = (req, res, next) => {
   });
 };
 
-
 exports.createPurchaseOrder = (req, res, next) => {
   const {
     po_id,
@@ -237,7 +236,7 @@ exports.createPurchaseOrder = (req, res, next) => {
     created_by,
     updated_by,
     status,
-    customer_po
+    customer_po,
   } = req.body;
 
   const query = `
@@ -262,7 +261,7 @@ exports.createPurchaseOrder = (req, res, next) => {
     created_by,
     updated_by,
     status,
-    customer_po
+    customer_po,
   ];
 
   connection.query(query, values, (err, result) => {
@@ -296,7 +295,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
     approved_by,
     updated_by,
     status,
-    customer_po
+    customer_po,
   } = req.body;
 
   const toMysqlDatetime = (dateString) => {
@@ -334,7 +333,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
     updated_by,
     status,
     customer_po,
-    poId
+    poId,
   ];
 
   connection.query(query, values, (err, result) => {
@@ -346,18 +345,16 @@ exports.updatePurchaseOrder = (req, res, next) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({
         status: "fail",
-        message: "Purchase order not found"
+        message: "Purchase order not found",
       });
     }
 
     res.status(200).json({
       status: "success",
-      message: "Purchase order updated successfully"
+      message: "Purchase order updated successfully",
     });
   });
 };
-
-
 
 exports.deletePurchaseOrder = (req, res, next) => {
   const poId = req.params.poId;
@@ -373,13 +370,13 @@ exports.deletePurchaseOrder = (req, res, next) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({
         status: "fail",
-        message: "Purchase order not found"
+        message: "Purchase order not found",
       });
     }
 
     res.status(200).json({
       status: "success",
-      message: "Purchase order deleted successfully"
+      message: "Purchase order deleted successfully",
     });
   });
 };

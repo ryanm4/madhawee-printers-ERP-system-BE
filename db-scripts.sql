@@ -115,6 +115,7 @@ CREATE TABLE `erp-madhawi-db`.`main_inventory` (
 CREATE TABLE `erp-madhawi-db`.`customers` (
   `customer_id` INT NOT NULL AUTO_INCREMENT,
   `company_name` VARCHAR(255) NOT NULL,
+  `customer_type` VARCHAR(45) NOT NULL,
   `address` VARCHAR(45) NULL,
   `phone` VARCHAR(45) NULL,
   `email` VARCHAR(45) NULL,
@@ -145,3 +146,14 @@ CREATE TABLE `erp-madhawi-db`.`customers` (
   `updated_by` VARCHAR(45) NULL,
   `updated_on` DATETIME NULL,
   PRIMARY KEY (`dispatch_id`));
+
+
+CREATE TABLE `erp-madhawi-db`.`po_items_details` (
+  `po_item_id` INT NOT NULL AUTO_INCREMENT,
+  `po_id` VARCHAR(45) NULL,
+  `item_code` VARCHAR(45) NULL,
+  `description` VARCHAR(45) NULL,
+  `quantity` VARCHAR(45) NULL,
+  `uom` VARCHAR(45) NULL,
+  `price` VARCHAR(45) NULL,
+  PRIMARY KEY (`po_item_id`));
