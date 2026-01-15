@@ -47,12 +47,14 @@ CREATE TABLE `erp-madhawi-db`.`purchase_orders` (
   `updated_on` DATETIME NULL,
   `updated_by` VARCHAR(45) NULL,
   `status` VARCHAR(45) NULL,
-  `customer_po` VARCHAR(45) NULL
+  `customer_po` VARCHAR(45) NULL,
+  `po_items` VARCHAR(45) NULL
   PRIMARY KEY (`po_id`));
 
 CREATE TABLE `erp-madhawi-db`.`jobs` (
   `job_id` INT NOT NULL AUTO_INCREMENT,
   `po_id` INT NULL,
+  `job_name` VARCHAR(45) NULL,
   `job_open_date` DATETIME NULL,
   `product_type` VARCHAR(45) NULL,
   `paper_type_id` VARCHAR(45) NULL,
@@ -115,6 +117,7 @@ CREATE TABLE `erp-madhawi-db`.`main_inventory` (
 CREATE TABLE `erp-madhawi-db`.`customers` (
   `customer_id` INT NOT NULL AUTO_INCREMENT,
   `company_name` VARCHAR(255) NOT NULL,
+  `customer_type` VARCHAR(45) NULL,
   `address` VARCHAR(45) NULL,
   `phone` VARCHAR(45) NULL,
   `email` VARCHAR(45) NULL,
