@@ -71,8 +71,9 @@ CREATE TABLE `erp-madhawi-db`.`jobs` (
   PRIMARY KEY (`job_id`));
 
 CREATE TABLE `erp-madhawi-db`.`job_materials` (
-  `job_material_id` INT NOT NULL,
+  `job_material_id` INT NOT NULL AUTO_INCREMENT,
   `job_id` INT NOT NULL,
+  `item_id` INT NULL,
   `material_type` VARCHAR(45) NULL,
   `material_name` VARCHAR(45) NULL,
   `material_description` VARCHAR(45) NULL,

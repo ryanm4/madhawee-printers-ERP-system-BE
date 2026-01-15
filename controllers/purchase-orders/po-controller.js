@@ -34,16 +34,16 @@ exports.getAllPOWithJobs = (req, res, next) => {
 
     FROM \`erp-madhawi-db\`.purchase_orders po
 
-    INNER JOIN \`erp-madhawi-db\`.quotations q
+    LEFT JOIN \`erp-madhawi-db\`.quotations q
       ON q.quote_id = po.quote_id
 
-    INNER JOIN \`erp-madhawi-db\`.customers c
+    LEFT JOIN \`erp-madhawi-db\`.customers c
       ON c.customer_id = q.customer_id
 
-    INNER JOIN \`erp-madhawi-db\`.jobs j
+    LEFT JOIN \`erp-madhawi-db\`.jobs j
       ON j.po_id = po.po_id
 
-    ORDER BY po.po_id, j.job_id
+    ORDER BY po.po_id DESC, j.job_id ASC
   `;
 
   connection.query(query, (err, results) => {
@@ -55,6 +55,7 @@ exports.getAllPOWithJobs = (req, res, next) => {
     const poMap = {};
 
     results.forEach((row) => {
+      // Initialize PO object once
       if (!poMap[row.po_id]) {
         poMap[row.po_id] = {
           po_id: row.po_id,
@@ -66,41 +67,48 @@ exports.getAllPOWithJobs = (req, res, next) => {
           TC_E_PR_No: row.TC_E_PR_No,
           status: row.po_status,
 
-          customer: {
-            customer_id: row.customer_id,
-            name: row.customer_name,
-            email: row.customer_email
-          },
+          customer: row.customer_id
+            ? {
+                customer_id: row.customer_id,
+                name: row.customer_name,
+                email: row.customer_email,
+              }
+            : null,
 
-          jobs: []
+          jobs: [],
         };
       }
 
-      poMap[row.po_id].jobs.push({
-        job_id: row.job_id,
-        job_open_date: row.job_open_date,
-        // job_name: row.job_name,
-        // product_type: row.product_type,
-        // paper_type_id: row.paper_type_id,
-        // quantity: row.quantity,
-        // coating: row.coating,
-        // packing_date: row.packing_date,
-        // expiry_date: row.expiry_date,
-        // description: row.description,
-        // artwork: row.artwork,
-        // remarks: row.remarks,
-        status: row.job_status,
-        // completed_qty: row.completed_qty,
-        // wastage: row.wastage
-      });
+      // Push job only if job exists
+      if (row.job_id) {
+        poMap[row.po_id].jobs.push({
+          job_id: row.job_id,
+          job_open_date: row.job_open_date,
+          job_name: row.job_name,
+          product_type: row.product_type,
+          paper_type_id: row.paper_type_id,
+          quantity: row.quantity,
+          coating: row.coating,
+          packing_date: row.packing_date,
+          expiry_date: row.expiry_date,
+          description: row.description,
+          artwork: row.artwork,
+          remarks: row.remarks,
+          status: row.job_status,
+          completed_qty: row.completed_qty,
+          wastage: row.wastage,
+        });
+      }
     });
 
     res.status(200).json({
       status: "success",
+      count: Object.keys(poMap).length,
       data: Object.values(poMap),
     });
   });
 };
+
 
 
 
