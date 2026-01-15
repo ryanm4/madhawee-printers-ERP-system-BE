@@ -2,7 +2,7 @@ const connection = require("../../sql-connection");
 
 exports.getAllQuotes = (req, res, next) => {
   const query = `SELECT q.quote_id,q.customer_id,
-  c.company_name,c.address AS customer_address,
+  c.company_name,c.address AS customer_address,c.customer_type AS customer_type,
   c.phone AS customer_phone, c.email AS customer_email,
   q.type_id, q.delivery_days, q.tax_type_id,
   q.currency, q.contact_person AS contact_person,
@@ -94,11 +94,11 @@ exports.getQuoteById = (req, res, next) => {
       updated_on: results[0].updated_on,
       updated_by: results[0].updated_by,
       status: results[0].status,
-      items: []
+      items: [],
     };
 
     // Push each item into items array
-    results.forEach(row => {
+    results.forEach((row) => {
       if (row.item_id) {
         quote.items.push({
           item_id: row.item_id,
@@ -107,18 +107,17 @@ exports.getQuoteById = (req, res, next) => {
           item_qty: row.item_qty,
           item_unit_price: row.item_unit_price,
           item_unit_discount: row.item_unit_discount,
-          item_total_price: row.item_total_price
+          item_total_price: row.item_total_price,
         });
       }
     });
 
     res.status(200).json({
       status: "success",
-      data: quote
+      data: quote,
     });
   });
 };
-
 
 exports.createQuote = (req, res, next) => {
   const {
@@ -137,7 +136,7 @@ exports.createQuote = (req, res, next) => {
     created_by,
     updated_by,
     status,
-    items
+    items,
   } = req.body;
 
   // START TRANSACTION
@@ -168,7 +167,7 @@ exports.createQuote = (req, res, next) => {
       notes,
       created_by,
       updated_by,
-      status
+      status,
     ];
 
     connection.query(quoteQuery, quoteValues, (err, result) => {
@@ -184,7 +183,7 @@ exports.createQuote = (req, res, next) => {
 
           res.status(201).json({
             status: "success",
-            message: "Quotation added without items."
+            message: "Quotation added without items.",
           });
         });
       }
@@ -197,15 +196,15 @@ exports.createQuote = (req, res, next) => {
       `;
 
       // Prepare item rows
-      const itemValues = items.map(item => ([
+      const itemValues = items.map((item) => [
         quote_id,
         item.item_category,
         item.item_description,
         item.item_qty,
         item.item_unit_price,
         item.item_unit_discount,
-        item.item_total_price
-      ]));
+        item.item_total_price,
+      ]);
 
       connection.query(itemQuery, [itemValues], (err, itemResult) => {
         if (err) {
@@ -220,7 +219,7 @@ exports.createQuote = (req, res, next) => {
 
           res.status(201).json({
             status: "success",
-            message: "Quotation and items added successfully."
+            message: "Quotation and items added successfully.",
           });
         });
       });
@@ -245,7 +244,7 @@ exports.updateQuote = (req, res, next) => {
     notes,
     updated_by,
     status,
-    items
+    items,
   } = req.body;
 
   // START TRANSACTION
@@ -287,7 +286,7 @@ exports.updateQuote = (req, res, next) => {
       notes,
       updated_by,
       status,
-      quoteId
+      quoteId,
     ];
 
     connection.query(updateQuoteQuery, updateQuoteValues, (err, result) => {
@@ -306,7 +305,7 @@ exports.updateQuote = (req, res, next) => {
 
             res.status(200).json({
               status: "success",
-              message: "Quotation updated (no items provided)"
+              message: "Quotation updated (no items provided)",
             });
           });
         }
@@ -319,15 +318,15 @@ exports.updateQuote = (req, res, next) => {
           ) VALUES ?
         `;
 
-        const itemValues = items.map(item => ([
+        const itemValues = items.map((item) => [
           quoteId,
           item.item_category,
           item.item_description,
           item.item_qty,
           item.item_unit_price,
           item.item_unit_discount,
-          item.item_total_price
-        ]));
+          item.item_total_price,
+        ]);
 
         connection.query(insertItemsQuery, [itemValues], (err, itemResult) => {
           if (err) return connection.rollback(() => next(err));
@@ -338,7 +337,7 @@ exports.updateQuote = (req, res, next) => {
 
             res.status(200).json({
               status: "success",
-              message: "Quotation and items updated successfully"
+              message: "Quotation and items updated successfully",
             });
           });
         });
@@ -346,7 +345,6 @@ exports.updateQuote = (req, res, next) => {
     });
   });
 };
-
 
 exports.deleteQuote = (req, res, next) => {
   const quoteId = req.params.quoteId;
@@ -411,11 +409,11 @@ exports.getQuotesByCustomerId = (req, res, next) => {
     if (quotes.length === 0) {
       return res.status(200).json({
         status: "success",
-        data: []
+        data: [],
       });
     }
 
-    const quoteIds = quotes.map(q => q.quote_id);
+    const quoteIds = quotes.map((q) => q.quote_id);
 
     // 2️⃣ Fetch all quote_items for these quoteIds
     const itemQuery = `
@@ -433,14 +431,14 @@ exports.getQuotesByCustomerId = (req, res, next) => {
       // 3️⃣ Attach items to the respective quote
       const quoteMap = {};
 
-      quotes.forEach(q => {
+      quotes.forEach((q) => {
         quoteMap[q.quote_id] = {
           ...q,
-          items: []
+          items: [],
         };
       });
 
-      items.forEach(item => {
+      items.forEach((item) => {
         if (quoteMap[item.quote_id]) {
           quoteMap[item.quote_id].items.push(item);
         }
@@ -451,7 +449,7 @@ exports.getQuotesByCustomerId = (req, res, next) => {
 
       res.status(200).json({
         status: "success",
-        data: responseArray
+        data: responseArray,
       });
     });
   });

@@ -54,7 +54,7 @@ exports.getAllPOWithJobs = (req, res, next) => {
 
     const poMap = {};
 
-    results.forEach(row => {
+    results.forEach((row) => {
       if (!poMap[row.po_id]) {
         poMap[row.po_id] = {
           po_id: row.po_id,
@@ -97,7 +97,7 @@ exports.getAllPOWithJobs = (req, res, next) => {
 
     res.status(200).json({
       status: "success",
-      data: Object.values(poMap)
+      data: Object.values(poMap),
     });
   });
 };
@@ -128,6 +128,7 @@ exports.getPObyId = (req, res, next) => {
 
       /* ---------- Customer ---------- */
       c.company_name AS customer_name,
+      c.customer_type AS customer_type,
       c.address AS customer_address,
       c.phone AS customer_phone,
       c.email AS customer_email,
@@ -312,7 +313,6 @@ exports.getPObyId = (req, res, next) => {
     });
   });
 };
-
 
 exports.createPurchaseOrder = (req, res, next) => {
   const {
@@ -541,8 +541,6 @@ exports.updatePurchaseOrder = (req, res, next) => {
     });
   });
 };
-
-
 
 exports.deletePurchaseOrder = (req, res, next) => {
   const poId = req.params.poId;

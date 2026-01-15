@@ -15,7 +15,6 @@ exports.getAllDispatchNotes = (req, res, next) => {
   });
 };
 
-
 exports.createDispatch = (req, res, next) => {
   const {
     dispatch_id,
@@ -25,7 +24,7 @@ exports.createDispatch = (req, res, next) => {
     dispatch_qty,
     no_of_bundles,
     description,
-    created_by
+    created_by,
   } = req.body;
 
   const query = `
@@ -52,7 +51,7 @@ exports.createDispatch = (req, res, next) => {
       dispatch_qty,
       no_of_bundles,
       description,
-      created_by
+      created_by,
     ],
     (err) => {
       if (err) {
@@ -62,12 +61,11 @@ exports.createDispatch = (req, res, next) => {
 
       res.status(201).json({
         message: "Dispatch created successfully",
-        dispatch_id
+        dispatch_id,
       });
     }
   );
 };
-
 
 exports.getDispatchById = (req, res, next) => {
   const { dispatch_id } = req.params;
@@ -87,6 +85,7 @@ exports.getDispatchById = (req, res, next) => {
 
       c.customer_id,
       c.company_name,
+      c.customer_type,
       c.address,
       c.phone,
       c.email,
@@ -110,7 +109,7 @@ exports.getDispatchById = (req, res, next) => {
 
     if (results.length === 0) {
       return res.status(404).json({
-        message: "Dispatch not found"
+        message: "Dispatch not found",
       });
     }
 
@@ -133,6 +132,7 @@ exports.getDispatchById = (req, res, next) => {
           ? {
               customer_id: row.customer_id,
               company_name: row.company_name,
+              customer_type: row.customer_type,
               address: row.address,
               phone: row.phone,
               email: row.email,
@@ -141,16 +141,13 @@ exports.getDispatchById = (req, res, next) => {
               logo_url: row.logo_url,
               contact_person: row.contact_person,
               contact_person_email: row.contact_person_email,
-              contact_person_phone: row.contact_person_phone
+              contact_person_phone: row.contact_person_phone,
             }
-          : null
-      }
+          : null,
+      },
     });
   });
 };
-
-
-
 
 exports.updateDispatch = (req, res, next) => {
   const { dispatch_id } = req.params;
@@ -162,7 +159,7 @@ exports.updateDispatch = (req, res, next) => {
     dispatch_qty,
     no_of_bundles,
     description,
-    updated_by
+    updated_by,
   } = req.body;
 
   const query = `
@@ -188,7 +185,7 @@ exports.updateDispatch = (req, res, next) => {
       no_of_bundles,
       description,
       updated_by,
-      dispatch_id
+      dispatch_id,
     ],
     (err, result) => {
       if (err) {
@@ -204,7 +201,6 @@ exports.updateDispatch = (req, res, next) => {
     }
   );
 };
-
 
 exports.deleteDispatch = (req, res, next) => {
   const { dispatch_id } = req.params;
