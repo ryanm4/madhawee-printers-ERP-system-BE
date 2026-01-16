@@ -55,6 +55,7 @@ exports.getAllJobs = (req, res, next) => {
 exports.createJob = (req, res) => {
   const {
     po_id,
+    customer_id,
     job_name,
     job_open_date,
     product_type,
@@ -82,12 +83,12 @@ exports.createJob = (req, res) => {
     // 1️⃣ Insert Job
     connection.query(
       `INSERT INTO jobs
-      (po_id, job_name, job_open_date, product_type, paper_type_id,
+      (po_id, customer_id, job_name, job_open_date, product_type, paper_type_id,
        quantity, coating, packing_date, expiry_date,
        description, artwork, remarks, status, completed_qty, wastage)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        po_id, job_name, job_open_date, product_type, paper_type_id,
+        po_id, customer_id, job_name, job_open_date, product_type, paper_type_id,
         quantity, coating, packing_date, expiry_date,
         description, artwork, remarks, status, completed_qty, wastage
       ],
@@ -273,6 +274,7 @@ exports.getJobById = (req, res) => {
       }
 
       const job = jobResults[0];
+      const customerId = job.customer_id; // ✅ you already have this
 
       // 2️⃣ Fetch materials for this job
       connection.query(
@@ -286,20 +288,51 @@ exports.getJobById = (req, res) => {
             return res.status(500).json({ message: "Failed to fetch job materials", error: err });
           }
 
-          // Optional: convert quantity to number
           const materials = materialResults.map((m) => ({
             ...m,
             quantity: m.quantity ? Number(m.quantity) : 0
           }));
 
-          // 3️⃣ Respond with job + materials
-          res.status(200).json({
-            status: "success",
-            data: {
-              ...job,
-              materials
+          // 3️⃣ Fetch customer details
+          connection.query(
+            `SELECT 
+              customer_id,
+              company_name,
+              customer_type,
+              address,
+              phone,
+              email,
+              vat_type,
+              vat_no,
+              logo_url,
+              contact_person,
+              contact_person_email,
+              contact_person_phone,
+              status
+             FROM customers
+             WHERE customer_id = ?`,
+            [customerId],
+            (err, customerResults) => {
+              if (err) {
+                return res.status(500).json({
+                  message: "Failed to fetch customer",
+                  error: err
+                });
+              }
+
+              const customer = customerResults.length > 0 ? customerResults[0] : null;
+
+              // 4️⃣ Final response
+              res.status(200).json({
+                status: "success",
+                data: {
+                  ...job,
+                  customer,
+                  materials
+                }
+              });
             }
-          });
+          );
         }
       );
     }
