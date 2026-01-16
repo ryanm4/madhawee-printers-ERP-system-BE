@@ -326,6 +326,7 @@ exports.createPurchaseOrder = (req, res, next) => {
   const {
     po_id,
     quote_id,
+    customer_id,
     po_type_id,
     batch_ref,
     po_date,
@@ -347,16 +348,17 @@ exports.createPurchaseOrder = (req, res, next) => {
     /* ---------- INSERT PURCHASE ORDER ---------- */
     const poQuery = `
       INSERT INTO purchase_orders (
-        po_id, quote_id, po_type_id, batch_ref, po_date, delivery_date, TC_E_PR_No,
+        po_id, quote_id, customer_id, po_type_id, batch_ref, po_date, delivery_date, TC_E_PR_No,
         approved_on, approved_by, created_on, created_by, updated_on, updated_by, status, customer_po
       ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?
       )
     `;
 
     const poValues = [
       po_id,
       quote_id,
+      customer_id,
       po_type_id,
       batch_ref,
       po_date,
@@ -427,6 +429,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
 
   const {
     quote_id,
+    customer_id,
     po_type_id,
     batch_ref,
     po_date,
@@ -454,6 +457,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
       UPDATE purchase_orders
       SET
         quote_id = ?,
+        customer_id = ?,
         po_type_id = ?,
         batch_ref = ?,
         po_date = ?,
@@ -470,6 +474,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
 
     const poValues = [
       quote_id,
+      customer_id,
       po_type_id,
       batch_ref,
       toMysqlDatetime(po_date),

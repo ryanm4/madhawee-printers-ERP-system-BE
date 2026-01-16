@@ -34,7 +34,8 @@ CREATE TABLE `erp-madhawi-db`.`quote_items` (
 
 CREATE TABLE `erp-madhawi-db`.`purchase_orders` (
   `po_id` INT NOT NULL,
-  `quote_id` INT NOT NULL,
+  `quote_id` INT NULL,
+  `customer_id` VARCHAR(45) NULL,
   `po_type_id` INT NULL,
   `batch_ref` VARCHAR(45) NULL,
   `po_date` DATETIME NULL,
