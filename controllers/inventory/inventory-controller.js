@@ -16,6 +16,45 @@ exports.getAllInventoryItems = (req, res, next) => {
     });
 }
 
+exports.getInventoryItemById = (req, res, next) => {
+  const { item_id } = req.params;
+
+  if (!item_id) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'item_id is required'
+    });
+  }
+
+  const query = `
+    SELECT * FROM main_inventory
+    WHERE item_id = ?
+  `;
+
+  connection.query(query, [item_id], (err, results) => {
+    if (err) {
+      console.error('DB Error:', err);
+      return res.status(500).json({
+        status: 'error',
+        message: 'Database error'
+      });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Item not found'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      data: results[0]
+    });
+  });
+};
+
+
 exports.createInventoryItem = (req, res, next) => {
   const {
     item_category,

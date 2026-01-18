@@ -6,7 +6,7 @@ inventoryRouter.route("/")
     .post(inventoryController.createInventoryItem);
 inventoryRouter.route("/:item_id")
     .put(inventoryController.updateInventoryItem)
-    // .get(inventoryController.getInventoryItemById)
+    .get(inventoryController.getInventoryItemById)
     .delete(inventoryController.deleteInventoryItem);
 
 module.exports = inventoryRouter;
