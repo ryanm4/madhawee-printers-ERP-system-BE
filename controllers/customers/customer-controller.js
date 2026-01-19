@@ -27,8 +27,9 @@ exports.getCustomerById = (req, res, next) => {
       address,
       phone,
       email,
-      vat_type,
-      vat_no,
+      credit_period,
+      svat_reg_no,
+      vat_reg_no,
       logo_url,
       contact_person,
       contact_person_email,
@@ -69,8 +70,9 @@ exports.createCustomer = (req, res, next) => {
     address,
     phone,
     email,
-    vat_type,
-    vat_no,
+    credit_period,
+    svat_reg_no,
+    vat_reg_no,
     logo_url,
     contact_person,
     contact_person_email,
@@ -80,13 +82,27 @@ exports.createCustomer = (req, res, next) => {
   } = req.body;
 
   const query = `
-    INSERT INTO customers (
-      company_name, customer_type, address, phone, email, vat_type, vat_no, logo_url,
-      contact_person, contact_person_email, contact_person_phone,
-      created_on, created_by, updated_on, updated_by, status
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?)
-  `;
+  INSERT INTO customers (
+    company_name,
+    customer_type,
+    address,
+    phone,
+    email,
+    credit_period,
+    svat_reg_no,
+    vat_reg_no,
+    logo_url,
+    contact_person,
+    contact_person_email,
+    contact_person_phone,
+    created_on,
+    created_by,
+    updated_on,
+    updated_by,
+    status
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?)
+`;
 
   const values = [
     company_name,
@@ -94,8 +110,9 @@ exports.createCustomer = (req, res, next) => {
     address,
     phone,
     email,
-    vat_type,
-    vat_no,
+    credit_period,
+    svat_reg_no,
+    vat_reg_no,
     logo_url,
     contact_person,
     contact_person_email,
@@ -128,8 +145,9 @@ exports.updateCustomer = (req, res, next) => {
     address,
     phone,
     email,
-    vat_type,
-    vat_no,
+    credit_period,
+    svat_reg_no,
+    vat_reg_no,
     logo_url,
     contact_person,
     contact_person_email,
@@ -146,8 +164,10 @@ exports.updateCustomer = (req, res, next) => {
       address = ?,
       phone = ?,
       email = ?,
-      vat_type = ?,
-      vat_no = ?,
+       credit_period = ?,
+      svat_reg_no = ?,
+      vat_reg_no =  ?,
+      
       logo_url = ?,
       contact_person = ?,
       contact_person_email = ?,
@@ -164,8 +184,9 @@ exports.updateCustomer = (req, res, next) => {
     address,
     phone,
     email,
-    vat_type,
-    vat_no,
+    credit_period,
+    svat_reg_no,
+    vat_reg_no,
     logo_url,
     contact_person,
     contact_person_email,

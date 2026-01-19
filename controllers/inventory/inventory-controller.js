@@ -1,28 +1,27 @@
 const connection = require("../../sql-connection");
 
 exports.getAllInventoryItems = (req, res, next) => {
-  const query = "SELECT * FROM \`erp-madhawi-db\`.\`main_inventory\`;";  
-    connection.query(query, (err, results) => {
+  const query = "SELECT * FROM `erp-madhawi-db`.`main_inventory`;";
+  connection.query(query, (err, results) => {
     if (err) {
       console.error("Error fetching inventory items:", err);
       return next(err);
-    }
-    else {
+    } else {
       res.status(200).json({
         status: "success",
         data: results,
       });
     }
-    });
-}
+  });
+};
 
 exports.getInventoryItemById = (req, res, next) => {
   const { item_id } = req.params;
 
   if (!item_id) {
     return res.status(400).json({
-      status: 'error',
-      message: 'item_id is required'
+      status: "error",
+      message: "item_id is required",
     });
   }
 
@@ -33,52 +32,53 @@ exports.getInventoryItemById = (req, res, next) => {
 
   connection.query(query, [item_id], (err, results) => {
     if (err) {
-      console.error('DB Error:', err);
+      console.error("DB Error:", err);
       return res.status(500).json({
-        status: 'error',
-        message: 'Database error'
+        status: "error",
+        message: "Database error",
       });
     }
 
     if (results.length === 0) {
       return res.status(404).json({
-        status: 'error',
-        message: 'Item not found'
+        status: "error",
+        message: "Item not found",
       });
     }
 
     return res.status(200).json({
-      status: 'success',
-      data: results[0]
+      status: "success",
+      data: results[0],
     });
   });
 };
-
 
 exports.createInventoryItem = (req, res, next) => {
   const {
     item_category,
     item_sub_category,
     item_name,
+    size,
+    quantity,
+    unit_of_measure,
+    reorder_level,
+    status,
+    remarks,
+  } = req.body;
+
+  const query = `
+  INSERT INTO main_inventory (
+    item_category,
+    item_sub_category,
+    item_name,
+    size,
     quantity,
     unit_of_measure,
     reorder_level,
     status,
     remarks
-  } = req.body;
-
-  const query = `
-    INSERT INTO main_inventory (
-      item_category,
-      item_sub_category,
-      item_name,
-      quantity,
-      unit_of_measure,
-      reorder_level,
-      status,
-      remarks
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `;
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`;
 
   connection.query(
     query,
@@ -86,11 +86,12 @@ exports.createInventoryItem = (req, res, next) => {
       item_category,
       item_sub_category,
       item_name,
+      size,
       quantity,
       unit_of_measure,
       reorder_level,
       status,
-      remarks
+      remarks,
     ],
     (err, result) => {
       if (err) {
@@ -100,12 +101,11 @@ exports.createInventoryItem = (req, res, next) => {
 
       res.status(201).json({
         message: "Inventory item created successfully",
-        item_id: result.insertId
+        item_id: result.insertId,
       });
     }
   );
 };
-
 
 exports.updateInventoryItem = (req, res, next) => {
   const { item_id } = req.params;
@@ -114,11 +114,12 @@ exports.updateInventoryItem = (req, res, next) => {
     item_category,
     item_sub_category,
     item_name,
+    size,
     quantity,
     unit_of_measure,
     reorder_level,
     status,
-    remarks
+    remarks,
   } = req.body;
 
   const query = `
@@ -127,6 +128,7 @@ exports.updateInventoryItem = (req, res, next) => {
       item_category = ?,
       item_sub_category = ?,
       item_name = ?,
+      size = ?,
       quantity = ?,
       unit_of_measure = ?,
       reorder_level = ?,
@@ -141,12 +143,13 @@ exports.updateInventoryItem = (req, res, next) => {
       item_category,
       item_sub_category,
       item_name,
+      size,
       quantity,
       unit_of_measure,
       reorder_level,
       status,
       remarks,
-      item_id
+      item_id,
     ],
     (err, result) => {
       if (err) {

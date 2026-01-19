@@ -69,8 +69,6 @@ exports.getAllDispatchNotes = (req, res, next) => {
   });
 };
 
-
-
 exports.createDispatch = (req, res, next) => {
   const {
     dispatch_id,
@@ -202,8 +200,9 @@ exports.getDispatchById = (req, res, next) => {
               address: row.address,
               phone: row.phone,
               email: row.email,
-              vat_type: row.vat_type,
-              vat_no: row.vat_no,
+              credit_period: row.credit_period,
+              svat_reg_no: row.svat_reg_no,
+              vat_reg_no: row.vat_reg_no,
               logo_url: row.logo_url,
               contact_person: row.contact_person,
               contact_person_email: row.contact_person_email,
@@ -290,9 +289,11 @@ exports.deleteDispatch = (req, res, next) => {
     if (err) return next(err);
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Dispatch not found' });
+      return res.status(404).json({ message: "Dispatch not found" });
     }
 
-    res.status(200).json({ status: 'success', message: 'Dispatch deleted successfully' });
+    res
+      .status(200)
+      .json({ status: "success", message: "Dispatch deleted successfully" });
   });
 };
