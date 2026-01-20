@@ -71,7 +71,6 @@ exports.getAllDispatchNotes = (req, res, next) => {
 
 exports.createDispatch = (req, res, next) => {
   const {
-    dispatch_id,
     customer_id,
     job_id,
     dispatch_note,
@@ -86,7 +85,6 @@ exports.createDispatch = (req, res, next) => {
 
   const query = `
     INSERT INTO \`erp-madhawi-db\`.dispatch (
-      dispatch_id,
       customer_id,
       job_id,
       dispatch_note,
@@ -98,13 +96,12 @@ exports.createDispatch = (req, res, next) => {
       status,
       created_by,
       created_on
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
   `;
 
   connection.query(
     query,
     [
-      dispatch_id,
       customer_id,
       job_id,
       dispatch_note,
@@ -116,7 +113,7 @@ exports.createDispatch = (req, res, next) => {
       status,
       created_by,
     ],
-    (err) => {
+    (err, result) => {
       if (err) {
         console.error("Error creating dispatch:", err);
         return next(err);
@@ -125,11 +122,12 @@ exports.createDispatch = (req, res, next) => {
       res.status(201).json({
         status: "success",
         message: "Dispatch created successfully",
-        dispatch_id,
+        dispatch_id: result.insertId, // ✅ AUTO_INCREMENT ID
       });
     }
   );
 };
+
 
 exports.getDispatchById = (req, res, next) => {
   const { dispatch_id } = req.params;
