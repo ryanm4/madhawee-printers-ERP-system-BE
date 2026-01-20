@@ -1,7 +1,7 @@
 CREATE SCHEMA `erp-madhawi-db` ;
 
 CREATE TABLE `erp-madhawi-db`.`quotations` (
-  `quote_id` VARCHAR(45) NOT NULL,
+  `quote_id` INT NOT NULL AUTO_INCREMENT,
   `customer_id` INT NOT NULL,
   `type_id` INT NOT NULL,
   `delivery_days` VARCHAR(45) NULL,
@@ -19,7 +19,7 @@ CREATE TABLE `erp-madhawi-db`.`quotations` (
   `updated_by` VARCHAR(45) NULL,
   `status` VARCHAR(45) NULL,
   PRIMARY KEY (`quote_id`),
-  UNIQUE INDEX `quote_id_UNIQUE` (`quote_id` ASC) VISIBLE);
+  UNIQUE INDEX `quote_id_UNIQUE` (`quote _id` ASC) VISIBLE);
 
 CREATE TABLE `erp-madhawi-db`.`quote_items` (
   `item_id` INT NOT NULL AUTO_INCREMENT,
@@ -33,7 +33,7 @@ CREATE TABLE `erp-madhawi-db`.`quote_items` (
   PRIMARY KEY (`item_id`));
 
 CREATE TABLE `erp-madhawi-db`.`purchase_orders` (
-  `po_id` INT NOT NULL,
+  `po_id` INT NOT NULL AUTO_INCREMENT,
   `quote_id` INT NULL,
   `customer_id` VARCHAR(45) NULL,
   `po_type_id` INT NULL,
@@ -49,7 +49,7 @@ CREATE TABLE `erp-madhawi-db`.`purchase_orders` (
   `updated_by` VARCHAR(45) NULL,
   `status` VARCHAR(45) NULL,
   `customer_po` VARCHAR(45) NULL,
-  `po_items` VARCHAR(45) NULL
+  `po_items` VARCHAR(45) NULL,
   PRIMARY KEY (`po_id`));
 
 CREATE TABLE `erp-madhawi-db`.`jobs` (
@@ -126,6 +126,7 @@ CREATE TABLE `erp-madhawi-db`.`customers` (
   `email` VARCHAR(45) NULL,
   `vat_type` VARCHAR(45) NULL,
   `vat_no` VARCHAR(45) NULL,
+  `credit_period` VARCHAR(45) NULL,
   `logo_url` VARCHAR(45) NULL,
   `contact_person` VARCHAR(45) NULL,
   `contact_person_email` VARCHAR(45) NULL,
@@ -139,7 +140,7 @@ CREATE TABLE `erp-madhawi-db`.`customers` (
 
 
   CREATE TABLE `erp-madhawi-db`.`dispatch` (
-  `dispatch_id` VARCHAR(45) NOT NULL,
+  `dispatch_id` INT NOT NULL AUTO_INCREMENT,
   `customer_id` VARCHAR(45) NULL,
   `job_id` VARCHAR(45) NULL,
   `dispatch_note` VARCHAR(45) NULL,
