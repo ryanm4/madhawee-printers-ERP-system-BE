@@ -185,7 +185,7 @@ exports.getPObyId = (req, res, next) => {
     FROM purchase_orders p
     LEFT JOIN quotations q ON p.quote_id = q.quote_id
     LEFT JOIN quote_items qi ON q.quote_id = qi.quote_id
-    LEFT JOIN customers c ON q.customer_id = c.customer_id
+    LEFT JOIN customers c ON p.customer_id = c.customer_id
     LEFT JOIN po_items_details pid ON p.po_id = pid.po_id
     LEFT JOIN jobs j ON p.po_id = j.po_id
     LEFT JOIN job_materials jm ON j.job_id = jm.job_id
