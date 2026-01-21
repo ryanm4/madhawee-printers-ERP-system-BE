@@ -146,6 +146,7 @@ exports.getDispatchById = (req, res, next) => {
       d.created_on,
       d.updated_by,
       d.updated_on,
+      d.job_id,
 
       c.customer_id,
       c.company_name,
@@ -158,10 +159,21 @@ exports.getDispatchById = (req, res, next) => {
       c.logo_url,
       c.contact_person,
       c.contact_person_email,
-      c.contact_person_phone
+      c.contact_person_phone,
+
+      jm.job_material_id,
+      jm.item_id,
+      jm.material_type,
+      jm.material_name,
+      jm.material_description,
+      jm.quantity AS material_quantity,
+      jm.status AS material_status,
+      jm.remarks
     FROM dispatch d
     LEFT JOIN customers c
       ON d.customer_id = c.customer_id
+    LEFT JOIN job_materials jm
+      ON d.job_id = jm.job_id
     WHERE d.dispatch_id = ?
   `;
 
@@ -179,9 +191,24 @@ exports.getDispatchById = (req, res, next) => {
 
     const row = results[0];
 
+    // ✅ Build job materials array
+    const jobMaterials = results
+      .filter(r => r.job_material_id)
+      .map(r => ({
+        job_material_id: r.job_material_id,
+        item_id: r.item_id,
+        material_type: r.material_type,
+        material_name: r.material_name,
+        material_description: r.material_description,
+        quantity: r.material_quantity,
+        status: r.material_status,
+        remarks: r.remarks,
+      }));
+
     res.json({
       data: {
         dispatch_id: row.dispatch_id,
+        job_id: row.job_id,
         dispatch_note: row.dispatch_note,
         dispatch_date: row.dispatch_date,
         dispatch_qty: row.dispatch_qty,
@@ -204,17 +231,19 @@ exports.getDispatchById = (req, res, next) => {
               email: row.email,
               vat_type: row.vat_type,
               vat_no: row.vat_no,
-              credit_period: row.credit_period,
               logo_url: row.logo_url,
               contact_person: row.contact_person,
               contact_person_email: row.contact_person_email,
               contact_person_phone: row.contact_person_phone,
             }
           : null,
+
+        job_materials: jobMaterials,
       },
     });
   });
 };
+
 
 exports.updateDispatch = (req, res, next) => {
   const { dispatch_id } = req.params;
