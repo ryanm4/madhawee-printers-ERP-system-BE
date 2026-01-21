@@ -69,10 +69,10 @@ exports.getAllPOWithJobs = (req, res, next) => {
 
           customer: row.customer_id
             ? {
-                customer_id: row.customer_id,
-                name: row.customer_name,
-                email: row.customer_email,
-              }
+              customer_id: row.customer_id,
+              name: row.customer_name,
+              email: row.customer_email,
+            }
             : null,
 
           jobs: [],
@@ -324,7 +324,6 @@ exports.getPObyId = (req, res, next) => {
 
 exports.createPurchaseOrder = (req, res, next) => {
   const {
-    po_id,
     quote_id,
     customer_id,
     po_type_id,
@@ -348,15 +347,27 @@ exports.createPurchaseOrder = (req, res, next) => {
     /* ---------- INSERT PURCHASE ORDER ---------- */
     const poQuery = `
       INSERT INTO purchase_orders (
-        po_id, quote_id, customer_id, po_type_id, batch_ref, po_date, delivery_date, TC_E_PR_No,
-        approved_on, approved_by, created_on, created_by, updated_on, updated_by, status, customer_po
+        quote_id,
+        customer_id,
+        po_type_id,
+        batch_ref,
+        po_date,
+        delivery_date,
+        TC_E_PR_No,
+        approved_on,
+        approved_by,
+        created_on,
+        created_by,
+        updated_on,
+        updated_by,
+        status,
+        customer_po
       ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?
       )
     `;
 
     const poValues = [
-      po_id,
       quote_id,
       customer_id,
       po_type_id,
@@ -372,21 +383,25 @@ exports.createPurchaseOrder = (req, res, next) => {
       customer_po
     ];
 
-    connection.query(poQuery, poValues, (err) => {
+    connection.query(poQuery, poValues, (err, result) => {
       if (err) {
         return connection.rollback(() => next(err));
       }
 
-      /* ---------- INSERT PO ITEMS ---------- */
-      if (!po_items.length) {
+      const generatedPoId = result.insertId;
+
+      /* ---------- NO ITEMS CASE ---------- */
+      if (!Array.isArray(po_items) || po_items.length === 0) {
         return connection.commit(() => {
           res.status(201).json({
             status: "success",
-            message: "Purchase Order created successfully"
+            message: "Purchase Order created successfully",
+            po_id: generatedPoId
           });
         });
       }
 
+      /* ---------- INSERT PO ITEMS ---------- */
       const itemQuery = `
         INSERT INTO po_items_details
           (po_id, item_code, description, quantity, uom, price)
@@ -394,7 +409,7 @@ exports.createPurchaseOrder = (req, res, next) => {
       `;
 
       const itemValues = po_items.map(item => [
-        po_id,
+        generatedPoId,
         item.item_code,
         item.description,
         item.quantity,
@@ -415,13 +430,15 @@ exports.createPurchaseOrder = (req, res, next) => {
 
           res.status(201).json({
             status: "success",
-            message: "Purchase Order and items created successfully"
+            message: "Purchase Order and items created successfully",
+            po_id: generatedPoId
           });
         });
       });
     });
   });
 };
+
 
 
 exports.updatePurchaseOrder = (req, res, next) => {
