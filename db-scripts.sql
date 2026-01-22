@@ -166,3 +166,11 @@ CREATE TABLE `erp-madhawi-db`.`po_items_details` (
   `uom` VARCHAR(45) NULL,
   `price` VARCHAR(45) NULL,
   PRIMARY KEY (`po_item_id`));
+
+CREATE TABLE `erp-madhawi-db`.`users` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(100) NULL,
+  `email` VARCHAR(100) NULL,
+  `password` VARCHAR(255) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `email_UNIQUE` (`email` ASC) VISIBLE);
