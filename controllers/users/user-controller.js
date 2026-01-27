@@ -65,6 +65,8 @@ exports.userLogin = (req, res, next) => {
             user: {
                 user_id: user.user_id,
                 email: user.email,
+                name: user.name,
+                user_role: user.user_role
             },
         });
 
