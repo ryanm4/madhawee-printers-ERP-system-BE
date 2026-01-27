@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 exports.userRegistration = async (req, res, next) => {
-    const { name, email, password } = req.body;
+    const { name, email, password, user_role } = req.body;
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -13,13 +13,13 @@ exports.userRegistration = async (req, res, next) => {
 
         const query = `
       INSERT INTO users
-        (name, email, password, created_on, updated_on)
-      VALUES (?, ?, ?, ?, ?)
+        (name, email, password, user_role, created_on, updated_on)
+      VALUES (?, ?, ?, ?, ?, ?)
     `;
 
         connection.query(
             query,
-            [name, email, hashedPassword, now, now],
+            [name, email, hashedPassword, user_role, now, now],
             (err) => {
                 if (err) {
                     console.error('Error registering user:', err);
