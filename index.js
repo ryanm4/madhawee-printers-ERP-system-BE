@@ -11,6 +11,7 @@ const dispatchRouter = require("./routes/dispatch/dispatch-route");
 const inventoryRouter = require("./routes/inventory/inventory-route");
 const authRouter = require("./routes/auth/auth-route");
 const { verifyToken } = require("./middleware/verify-token");
+const reportRouter = require("./routes/reports/report-routes");
 
 dotenv.config({ path: "./config.env" });
 const port = process.env.PORT || 3000;
@@ -63,4 +64,5 @@ app.use("/api/v1/purchase_orders", poRouter);
 app.use("/api/v1/jobs", jobsRouter);
 app.use("/api/v1/dispatch", dispatchRouter);
 app.use("/api/v1/inventory", inventoryRouter);
+app.use("/api/v1/reports", reportRouter);
 
