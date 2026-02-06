@@ -74,19 +74,30 @@ exports.userLogin = (req, res, next) => {
 }
 
 exports.getAllUsers = (req, res, next) => {
-    const query = 'SELECT * FROM users';
+    const query = `
+        SELECT 
+            id,
+            name,
+            email,
+            user_role,
+            created_on,
+            updated_on
+        FROM users
+    `;
+
     connection.query(query, (err, results) => {
         if (err) {
             console.error('Error fetching users:', err);
             return next(err);
         }
-        const data = {
+
+        res.status(200).json({
             users: results,
             message: 'Users fetched successfully'
-        }
-        res.status(200).json(data);
+        });
     });
-}
+};
+
 
 exports.updateUser = (req, res) => {
     const { id } = req.params;
