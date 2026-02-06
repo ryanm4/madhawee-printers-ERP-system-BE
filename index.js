@@ -3,6 +3,9 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const connection = require("./sql-connection");
 
+const swaggerUI = require('swagger-ui-express');
+const swaggerSpec = require('./swagger');
+
 const quoteRouter = require("./routes/quote-routes/quote-routes");
 const customerRouter = require("./routes/customers/customers-route");
 const poRouter = require("./routes/purchase-order-routes/po-route");
@@ -27,6 +30,8 @@ connection.connect((err) => {
   }
   console.log("Connected to the MySQL database.");
 });
+
+app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 
 const server = app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

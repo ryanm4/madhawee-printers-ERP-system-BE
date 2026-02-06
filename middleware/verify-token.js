@@ -1,6 +1,9 @@
 const jwt = require('jsonwebtoken');
 
 exports.verifyToken = (req, res, next) => {
+    if (req.path.startsWith("/api-docs")) {
+        return next();
+    }
     try {
         const authHeader = req.headers['authorization'];
 
