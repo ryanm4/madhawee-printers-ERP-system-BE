@@ -61,19 +61,84 @@ jobsRouter.route("/po/:poId")
  *           schema:
  *             type: object
  *             required:
- *               - po_id
+ *               - customer_id
+ *               - job_name
+ *               - product_type
  *             properties:
- *               po_id:
+ *               customer_id:
  *                 type: integer
  *                 example: 1
  *               job_name:
  *                 type: string
- *                 example: Printing Job A
- *               status:
+ *                 example: Job Black
+ *               job_open_date:
  *                 type: string
- *                 example: PENDING
+ *                 format: date-time
+ *                 example: "2026-01-15 10:00:00"
+ *               product_type:
+ *                 type: string
+ *                 example: "1"
+ *               paper_type_id:
+ *                 type: string
+ *                 example: "PAPER01"
+ *               quantity:
+ *                 type: integer
+ *                 example: 1000
+ *               coating:
+ *                 type: string
+ *                 example: "Gloss"
+ *               packing_date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2026-01-20"
+ *               expiry_date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2026-06-20"
  *               description:
  *                 type: string
+ *                 example: "Sample job"
+ *               artwork:
+ *                 type: string
+ *                 example: "artwork.pdf"
+ *               remarks:
+ *                 type: string
+ *                 example: "Urgent"
+ *               status:
+ *                 type: string
+ *                 example: "OPEN"
+ *               completed_qty:
+ *                 type: integer
+ *                 example: 0
+ *               wastage:
+ *                 type: string
+ *                 example: "0"
+ *               materials:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     item_id:
+ *                       type: integer
+ *                       example: 1004
+ *                     material_type:
+ *                       type: string
+ *                       example: "Paper"
+ *                     material_name:
+ *                       type: string
+ *                       example: "A4 Paper"
+ *                     material_description:
+ *                       type: string
+ *                       example: "White A4"
+ *                     quantity:
+ *                       type: integer
+ *                       example: 50
+ *                     status:
+ *                       type: string
+ *                       example: "USED"
+ *                     remarks:
+ *                       type: string
+ *                       example: ""
  *     responses:
  *       201:
  *         description: Job created successfully
@@ -128,12 +193,80 @@ jobsRouter.route("/")
  *           schema:
  *             type: object
  *             properties:
+ *               customer_id:
+ *                 type: integer
+ *                 example: 1
  *               job_name:
  *                 type: string
- *               status:
+ *                 example: Job Black
+ *               job_open_date:
  *                 type: string
+ *                 format: date-time
+ *                 example: "2026-01-15 10:00:00"
+ *               product_type:
+ *                 type: string
+ *                 example: "1"
+ *               paper_type_id:
+ *                 type: string
+ *                 example: "PAPER01"
+ *               quantity:
+ *                 type: integer
+ *                 example: 1000
+ *               coating:
+ *                 type: string
+ *                 example: "Gloss"
+ *               packing_date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2026-01-20"
+ *               expiry_date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2026-06-20"
  *               description:
  *                 type: string
+ *                 example: "Sample job"
+ *               artwork:
+ *                 type: string
+ *                 example: "artwork.pdf"
+ *               remarks:
+ *                 type: string
+ *                 example: "Urgent"
+ *               status:
+ *                 type: string
+ *                 example: "OPEN"
+ *               completed_qty:
+ *                 type: integer
+ *                 example: 0
+ *               wastage:
+ *                 type: string
+ *                 example: "0"
+ *               materials:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     item_id:
+ *                       type: integer
+ *                       example: 1004
+ *                     material_type:
+ *                       type: string
+ *                       example: "Paper"
+ *                     material_name:
+ *                       type: string
+ *                       example: "A4 Paper"
+ *                     material_description:
+ *                       type: string
+ *                       example: "White A4"
+ *                     quantity:
+ *                       type: integer
+ *                       example: 50
+ *                     status:
+ *                       type: string
+ *                       example: "USED"
+ *                     remarks:
+ *                       type: string
+ *                       example: ""
  *     responses:
  *       200:
  *         description: Job updated successfully

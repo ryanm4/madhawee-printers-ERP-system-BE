@@ -21,18 +21,48 @@ const reportController = require("../../controllers/reports/report-controller");
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - reportType
+ *               - filters
  *             properties:
- *               report_type:
+ *               reportType:
  *                 type: string
- *                 example: sales
- *               start_date:
- *                 type: string
- *                 format: date
- *               end_date:
- *                 type: string
- *                 format: date
+ *                 enum:
+ *                   - JOB_PRODUCTION
+ *                   - QUOTATION_SUMMARY
+ *                   - QUOTE_TO_PO_CONVERSION
+ *                   - INVENTORY_HEALTH
+ *                   - DISPATCH_INSIGHTS
+ *                 example: QUOTE_TO_PO_CONVERSION
+ *                 description: Type of report to generate
  *               filters:
  *                 type: object
+ *                 required:
+ *                   - fromDate
+ *                   - toDate
+ *                 properties:
+ *                   fromDate:
+ *                     type: string
+ *                     format: date
+ *                     example: "2025-01-01"
+ *                     description: Start date for the report
+ *                   toDate:
+ *                     type: string
+ *                     format: date
+ *                     example: "2026-01-31"
+ *                     description: End date for the report
+ *                   customer_id:
+ *                     type: integer
+ *                     example: 1
+ *                     description: Optional customer filter
+ *                   status:
+ *                     type: string
+ *                     example: "OPEN"
+ *                     description: Optional status filter
+ *                   product_type:
+ *                     type: string
+ *                     example: "BOX"
+ *                     description: Optional product type filter
  *     responses:
  *       200:
  *         description: Report generated successfully
@@ -55,14 +85,20 @@ reportRouter.route("/").post(reportController.generateReport);
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - dateFrom
+ *               - dateTo
  *             properties:
- *               period:
+ *               dateFrom:
  *                 type: string
- *                 example: monthly
- *               metrics:
- *                 type: array
- *                 items:
- *                   type: string
+ *                 format: date
+ *                 example: "2024-01-01"
+ *                 description: Start date for dashboard insights
+ *               dateTo:
+ *                 type: string
+ *                 format: date
+ *                 example: "2026-01-31"
+ *                 description: End date for dashboard insights
  *     responses:
  *       200:
  *         description: Dashboard insights retrieved successfully

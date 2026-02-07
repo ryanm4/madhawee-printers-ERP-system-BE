@@ -35,19 +35,76 @@ const poRouter = express.Router();
  *           schema:
  *             type: object
  *             required:
- *               - quote_id
+ *               - customer_id
+ *               - po_type_id
+ *               - po_date
+ *               - delivery_date
  *             properties:
- *               quote_id:
+ *               customer_id:
+ *                 type: integer
+ *                 example: 2
+ *               po_type_id:
  *                 type: integer
  *                 example: 1
+ *               batch_ref:
+ *                 type: string
+ *                 example: "BATCH-021"
  *               po_date:
  *                 type: string
  *                 format: date
+ *                 example: "2026-01-21"
  *               delivery_date:
  *                 type: string
  *                 format: date
- *               notes:
+ *                 example: "2026-01-31"
+ *               TC_E_PR_No:
  *                 type: string
+ *                 example: "TC-123"
+ *               approved_on:
+ *                 type: string
+ *                 format: date
+ *                 example: "2026-01-15"
+ *               approved_by:
+ *                 type: string
+ *                 example: "Manager"
+ *               created_by:
+ *                 type: string
+ *                 example: "admin"
+ *               updated_by:
+ *                 type: string
+ *                 example: "admin"
+ *               status:
+ *                 type: string
+ *                 example: "APPROVED"
+ *               customer_po:
+ *                 type: string
+ *                 example: "CPO-456"
+ *               po_items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - item_code
+ *                     - description
+ *                     - quantity
+ *                     - uom
+ *                     - price
+ *                   properties:
+ *                     item_code:
+ *                       type: string
+ *                       example: "ITEM-001"
+ *                     description:
+ *                       type: string
+ *                       example: "A4 Paper"
+ *                     quantity:
+ *                       type: string
+ *                       example: "500"
+ *                     uom:
+ *                       type: string
+ *                       example: "Sheets"
+ *                     price:
+ *                       type: string
+ *                       example: "25.00"
  *     responses:
  *       201:
  *         description: Purchase order created successfully
@@ -102,16 +159,65 @@ poRouter.route("/")
  *           schema:
  *             type: object
  *             properties:
+ *               customer_id:
+ *                 type: integer
+ *                 example: 2
+ *               po_type_id:
+ *                 type: integer
+ *                 example: 1
+ *               batch_ref:
+ *                 type: string
+ *                 example: "BATCH-021"
  *               po_date:
  *                 type: string
  *                 format: date
+ *                 example: "2026-01-21"
  *               delivery_date:
  *                 type: string
  *                 format: date
- *               notes:
+ *                 example: "2026-01-31"
+ *               TC_E_PR_No:
  *                 type: string
+ *                 example: "TC-123"
+ *               approved_on:
+ *                 type: string
+ *                 format: date
+ *                 example: "2026-01-15"
+ *               approved_by:
+ *                 type: string
+ *                 example: "Manager"
+ *               created_by:
+ *                 type: string
+ *                 example: "admin"
+ *               updated_by:
+ *                 type: string
+ *                 example: "admin"
  *               status:
  *                 type: string
+ *                 example: "APPROVED"
+ *               customer_po:
+ *                 type: string
+ *                 example: "CPO-456"
+ *               po_items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     item_code:
+ *                       type: string
+ *                       example: "ITEM-001"
+ *                     description:
+ *                       type: string
+ *                       example: "A4 Paper"
+ *                     quantity:
+ *                       type: string
+ *                       example: "500"
+ *                     uom:
+ *                       type: string
+ *                       example: "Sheets"
+ *                     price:
+ *                       type: string
+ *                       example: "25.00"
  *     responses:
  *       200:
  *         description: Purchase order updated successfully

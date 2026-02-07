@@ -35,23 +35,48 @@ const inventoryRouter = express.Router();
  *           schema:
  *             type: object
  *             required:
- *               - item_name
- *               - quantity
+ *               - customer_id
+ *               - job_id
  *             properties:
- *               item_name:
+ *               customer_id:
  *                 type: string
- *                 example: Paper Rolls
- *               quantity:
+ *                 example: "2"
+ *               job_id:
  *                 type: integer
- *                 example: 100
- *               sku:
+ *                 example: 9012
+ *               dispatch_note:
  *                 type: string
- *                 example: SKU-001
- *               unit_price:
- *                 type: number
- *                 example: 10.50
+ *                 example: "Urgent delivery"
+ *               dispatch_date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2025-01-05"
+ *               dispatch_qty:
+ *                 type: string
+ *                 example: "500"
+ *               no_of_bundles:
+ *                 type: string
+ *                 example: "5"
  *               description:
  *                 type: string
+ *                 example: "Flyers"
+ *               status:
+ *                 type: string
+ *                 example: "Pending"
+ *               created_by:
+ *                 type: string
+ *                 example: "admin"
+ *               created_on:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2025-01-05T10:00:00.000Z"
+ *               updated_by:
+ *                 type: string
+ *                 example: "admin2"
+ *               updated_on:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2025-01-07T06:15:00.000Z"
  *     responses:
  *       201:
  *         description: Inventory item created successfully
@@ -106,16 +131,45 @@ inventoryRouter.route("/")
  *           schema:
  *             type: object
  *             properties:
- *               item_name:
+ *               customer_id:
  *                 type: string
- *               quantity:
+ *                 example: "2"
+ *               job_id:
  *                 type: integer
- *               sku:
+ *                 example: 9012
+ *               dispatch_note:
  *                 type: string
- *               unit_price:
- *                 type: number
+ *                 example: "Urgent delivery"
+ *               dispatch_date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2025-01-05"
+ *               dispatch_qty:
+ *                 type: string
+ *                 example: "500"
+ *               no_of_bundles:
+ *                 type: string
+ *                 example: "5"
  *               description:
  *                 type: string
+ *                 example: "Flyers"
+ *               status:
+ *                 type: string
+ *                 example: "Pending"
+ *               created_by:
+ *                 type: string
+ *                 example: "admin"
+ *               created_on:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2025-01-05T10:00:00.000Z"
+ *               updated_by:
+ *                 type: string
+ *                 example: "admin2"
+ *               updated_on:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2025-01-07T06:15:00.000Z"
  *     responses:
  *       200:
  *         description: Inventory item updated successfully

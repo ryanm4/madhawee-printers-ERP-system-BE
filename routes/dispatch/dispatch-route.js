@@ -36,16 +36,49 @@ const dispatchRouter = express.Router();
  *           schema:
  *             type: object
  *             required:
- *               - po_id
+ *               - customer_id
+ *               - job_id
+ *               - dispatch_date
  *             properties:
- *               po_id:
+ *               customer_id:
+ *                 type: string
+ *                 example: "2"
+ *               job_id:
  *                 type: integer
- *                 example: 1
+ *                 example: 9012
+ *               dispatch_note:
+ *                 type: string
+ *                 example: "Urgent delivery"
  *               dispatch_date:
  *                 type: string
  *                 format: date
- *               notes:
+ *                 example: "2025-01-05"
+ *               dispatch_qty:
  *                 type: string
+ *                 example: "500"
+ *               no_of_bundles:
+ *                 type: string
+ *                 example: "5"
+ *               description:
+ *                 type: string
+ *                 example: "Flyers"
+ *               status:
+ *                 type: string
+ *                 example: "Pending"
+ *               created_by:
+ *                 type: string
+ *                 example: "admin"
+ *               created_on:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2025-01-05T10:00:00.000Z"
+ *               updated_by:
+ *                 type: string
+ *                 example: "admin2"
+ *               updated_on:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2025-01-07T06:15:00.000Z"
  *     responses:
  *       201:
  *         description: Dispatch note created successfully
@@ -99,11 +132,45 @@ dispatchRouter.route("/").post(dispatchController.createDispatch);
  *           schema:
  *             type: object
  *             properties:
+ *               customer_id:
+ *                 type: string
+ *                 example: "2"
+ *               job_id:
+ *                 type: integer
+ *                 example: 9012
+ *               dispatch_note:
+ *                 type: string
+ *                 example: "Urgent delivery"
  *               dispatch_date:
  *                 type: string
  *                 format: date
- *               notes:
+ *                 example: "2025-01-05"
+ *               dispatch_qty:
  *                 type: string
+ *                 example: "500"
+ *               no_of_bundles:
+ *                 type: string
+ *                 example: "5"
+ *               description:
+ *                 type: string
+ *                 example: "Flyers"
+ *               status:
+ *                 type: string
+ *                 example: "Pending"
+ *               created_by:
+ *                 type: string
+ *                 example: "admin"
+ *               created_on:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2025-01-05T10:00:00.000Z"
+ *               updated_by:
+ *                 type: string
+ *                 example: "admin2"
+ *               updated_on:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2025-01-07T06:15:00.000Z"
  *     responses:
  *       200:
  *         description: Dispatch note updated successfully
