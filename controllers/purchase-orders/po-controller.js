@@ -38,7 +38,7 @@ exports.getAllPOWithJobs = (req, res, next) => {
       ON q.quote_id = po.quote_id
 
     LEFT JOIN \`erp-madhawi-db\`.customers c
-      ON c.customer_id = q.customer_id
+      ON c.customer_id = po.customer_id
 
     LEFT JOIN \`erp-madhawi-db\`.jobs j
       ON j.po_id = po.po_id
@@ -69,10 +69,10 @@ exports.getAllPOWithJobs = (req, res, next) => {
 
           customer: row.customer_id
             ? {
-              customer_id: row.customer_id,
-              name: row.customer_name,
-              email: row.customer_email,
-            }
+                customer_id: row.customer_id,
+                name: row.customer_name,
+                email: row.customer_email,
+              }
             : null,
 
           jobs: [],
@@ -109,9 +109,6 @@ exports.getAllPOWithJobs = (req, res, next) => {
   });
 };
 
-
-
-
 exports.getPObyId = (req, res, next) => {
   const poId = req.params.poId;
 
@@ -140,6 +137,7 @@ exports.getPObyId = (req, res, next) => {
       c.address AS customer_address,
       c.phone AS customer_phone,
       c.email AS customer_email,
+      c.customer_id AS customer_id,
 
       /* ---------- Quotation Items ---------- */
       qi.item_id,
@@ -228,6 +226,7 @@ exports.getPObyId = (req, res, next) => {
         address: results[0].customer_address,
         phone: results[0].customer_phone,
         email: results[0].customer_email,
+        customer_id: results[0].customer_id,
       },
 
       quotation_items: [],
@@ -241,7 +240,6 @@ exports.getPObyId = (req, res, next) => {
     const jobMap = {};
 
     results.forEach((r) => {
-
       /* ---------- Quotation Items ---------- */
       if (r.item_id && !quoteItemMap[r.item_id]) {
         quoteItemMap[r.item_id] = true;
@@ -337,7 +335,7 @@ exports.createPurchaseOrder = (req, res, next) => {
     updated_by,
     status,
     customer_po,
-    po_items = []
+    po_items = [],
   } = req.body;
 
   /* ---------- START TRANSACTION ---------- */
@@ -380,7 +378,7 @@ exports.createPurchaseOrder = (req, res, next) => {
       created_by,
       updated_by,
       status,
-      customer_po
+      customer_po,
     ];
 
     connection.query(poQuery, poValues, (err, result) => {
@@ -396,7 +394,7 @@ exports.createPurchaseOrder = (req, res, next) => {
           res.status(201).json({
             status: "success",
             message: "Purchase Order created successfully",
-            po_id: generatedPoId
+            po_id: generatedPoId,
           });
         });
       }
@@ -408,13 +406,13 @@ exports.createPurchaseOrder = (req, res, next) => {
         VALUES ?
       `;
 
-      const itemValues = po_items.map(item => [
+      const itemValues = po_items.map((item) => [
         generatedPoId,
         item.item_code,
         item.description,
         item.quantity,
         item.uom,
-        item.price
+        item.price,
       ]);
 
       connection.query(itemQuery, [itemValues], (err) => {
@@ -431,15 +429,13 @@ exports.createPurchaseOrder = (req, res, next) => {
           res.status(201).json({
             status: "success",
             message: "Purchase Order and items created successfully",
-            po_id: generatedPoId
+            po_id: generatedPoId,
           });
         });
       });
     });
   });
 };
-
-
 
 exports.updatePurchaseOrder = (req, res, next) => {
   const poId = req.params.poId;
@@ -457,7 +453,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
     updated_by,
     status,
     customer_po,
-    po_items = []
+    po_items = [],
   } = req.body;
 
   const toMysqlDatetime = (dateString) => {
@@ -502,7 +498,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
       updated_by,
       status,
       customer_po,
-      poId
+      poId,
     ];
 
     connection.query(poQuery, poValues, (err, result) => {
@@ -514,7 +510,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
         return connection.rollback(() =>
           res.status(404).json({
             status: "fail",
-            message: "Purchase order not found"
+            message: "Purchase order not found",
           })
         );
       }
@@ -534,7 +530,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
           return connection.commit(() =>
             res.status(200).json({
               status: "success",
-              message: "Purchase order updated successfully"
+              message: "Purchase order updated successfully",
             })
           );
         }
@@ -545,13 +541,13 @@ exports.updatePurchaseOrder = (req, res, next) => {
           VALUES ?
         `;
 
-        const itemValues = po_items.map(item => [
+        const itemValues = po_items.map((item) => [
           poId,
           item.item_code,
           item.description,
           item.quantity,
           item.uom,
-          item.price
+          item.price,
         ]);
 
         connection.query(insertItemsQuery, [itemValues], (err) => {
@@ -563,7 +559,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
           connection.commit(() => {
             res.status(200).json({
               status: "success",
-              message: "Purchase order and items updated successfully"
+              message: "Purchase order and items updated successfully",
             });
           });
         });
@@ -605,7 +601,7 @@ exports.deletePurchaseOrder = (req, res, next) => {
           return connection.rollback(() =>
             res.status(404).json({
               status: "fail",
-              message: "Purchase order not found"
+              message: "Purchase order not found",
             })
           );
         }
@@ -614,11 +610,10 @@ exports.deletePurchaseOrder = (req, res, next) => {
         connection.commit(() => {
           res.status(200).json({
             status: "success",
-            message: "Purchase order deleted successfully"
+            message: "Purchase order deleted successfully",
           });
         });
       });
     });
   });
 };
-

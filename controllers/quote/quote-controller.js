@@ -121,7 +121,6 @@ exports.getQuoteById = (req, res, next) => {
 
 exports.createQuote = (req, res, next) => {
   const {
-    quote_id,
     customer_id,
     type_id,
     delivery_days,
@@ -145,15 +144,14 @@ exports.createQuote = (req, res, next) => {
 
     // 1️⃣ Insert into quotations table
     const quoteQuery = `
-      INSERT INTO quotations (
-        quote_id, customer_id, type_id, delivery_days, tax_type_id,
-        currency, sub_total, no_of_items, total_without_tax, net_total,
-        contact_person, notes, created_on, created_by, updated_on, updated_by, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NULL, ?, ?)
-    `;
+  INSERT INTO quotations (
+    customer_id, type_id, delivery_days, tax_type_id,
+    currency, sub_total, no_of_items, total_without_tax, net_total,
+    contact_person, notes, created_on, created_by, updated_on, updated_by, status
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NULL, ?, ?)
+`;
 
     const quoteValues = [
-      quote_id,
       customer_id,
       type_id,
       delivery_days,
@@ -174,6 +172,8 @@ exports.createQuote = (req, res, next) => {
       if (err) {
         return connection.rollback(() => next(err));
       }
+
+      const quoteId = result.insertId;
 
       // 2️⃣ Insert items into quote_items
       if (!items || items.length === 0) {
@@ -197,7 +197,7 @@ exports.createQuote = (req, res, next) => {
 
       // Prepare item rows
       const itemValues = items.map((item) => [
-        quote_id,
+        quoteId,
         item.item_category,
         item.item_description,
         item.item_qty,
