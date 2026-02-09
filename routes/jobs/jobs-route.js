@@ -74,7 +74,7 @@ jobsRouter.route("/po/:poId")
  *               job_open_date:
  *                 type: string
  *                 format: date-time
- *                 example: "2026-01-15 10:00:00"
+ *                 example: "2026-01-15T10:00:00Z"
  *               product_type:
  *                 type: string
  *                 example: "1"
@@ -113,6 +113,7 @@ jobsRouter.route("/po/:poId")
  *               wastage:
  *                 type: string
  *                 example: "0"
+ *
  *               materials:
  *                 type: array
  *                 items:
@@ -139,14 +140,25 @@ jobsRouter.route("/po/:poId")
  *                     remarks:
  *                       type: string
  *                       example: ""
- *     responses:
- *       201:
- *         description: Job created successfully
- *       400:
- *         description: Bad request
- *       500:
- *         description: Internal server error
- */
+ *
+ *               paperCoating:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1   
+ *                     paper:
+ *                       type: string
+ *                       example: "A4"
+ *                     coating:
+ *                       type: string
+ *                       example: "Gloss"
+ *                     delivery_date:
+ *                      type: string
+ *                      format: date-time
+*/
 jobsRouter.route("/")
     .get(jobsController.getAllJobs)
     .post(jobsController.createJob)
@@ -193,80 +205,61 @@ jobsRouter.route("/")
  *           schema:
  *             type: object
  *             properties:
- *               customer_id:
+ *               po_id:
  *                 type: integer
- *                 example: 1
+ *                 example: 5005
  *               job_name:
  *                 type: string
- *                 example: Job Black
- *               job_open_date:
- *                 type: string
- *                 format: date-time
- *                 example: "2026-01-15 10:00:00"
- *               product_type:
- *                 type: string
- *                 example: "1"
- *               paper_type_id:
- *                 type: string
- *                 example: "PAPER01"
+ *                 example: "Print Job D"
  *               quantity:
  *                 type: integer
- *                 example: 1000
- *               coating:
- *                 type: string
- *                 example: "Gloss"
- *               packing_date:
- *                 type: string
- *                 format: date
- *                 example: "2026-01-20"
- *               expiry_date:
- *                 type: string
- *                 format: date
- *                 example: "2026-06-20"
- *               description:
- *                 type: string
- *                 example: "Sample job"
- *               artwork:
- *                 type: string
- *                 example: "artwork.pdf"
- *               remarks:
- *                 type: string
- *                 example: "Urgent"
+ *                 example: 10000
  *               status:
  *                 type: string
  *                 example: "OPEN"
- *               completed_qty:
- *                 type: integer
- *                 example: 0
- *               wastage:
- *                 type: string
- *                 example: "0"
  *               materials:
  *                 type: array
  *                 items:
  *                   type: object
+ *                   required:
+ *                     - item_id
  *                   properties:
  *                     item_id:
  *                       type: integer
  *                       example: 1004
- *                     material_type:
- *                       type: string
- *                       example: "Paper"
  *                     material_name:
  *                       type: string
  *                       example: "A4 Paper"
- *                     material_description:
+ *                     material_type:
  *                       type: string
- *                       example: "White A4"
+ *                       example: "Paper"
  *                     quantity:
  *                       type: integer
- *                       example: 50
+ *                       example: 40
  *                     status:
  *                       type: string
  *                       example: "USED"
  *                     remarks:
  *                       type: string
  *                       example: ""
+ *               paperCoating:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 6
+ *                     paper:
+ *                       type: string
+ *                       example: "GSM 2"
+ *                     coating:
+ *                       type: string
+ *                       example: "Gloss"
+ *                     delivery_date:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2026-02-15 00:00:00"
  *     responses:
  *       200:
  *         description: Job updated successfully
@@ -277,6 +270,7 @@ jobsRouter.route("/")
  *       500:
  *         description: Internal server error
  */
+
 jobsRouter.route("/:jobId")
     .get(jobsController.getJobById)
     .put(jobsController.updateJob);

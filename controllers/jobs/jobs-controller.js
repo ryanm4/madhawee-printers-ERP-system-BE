@@ -208,13 +208,23 @@ exports.updateJob = (req, res) => {
 
   const {
     job_name = null,
+    product_type = null,
+    paper_type_id = null,
     quantity = null,
+    coating = null,
+    packing_date = null,
+    expiry_date = null,
+    description = null,
+    artwork = null,
+    remarks = null,
     status = null,
+    completed_qty = 0,
+    wastage = "0",
     materials = [],
-    paperCoating = [] // 👈 NEW
+    paperCoating = []
   } = req.body;
 
-  connection.beginTransaction((err) => {
+  connection.beginTransaction(err => {
     if (err) return res.status(500).json({ message: "Transaction start failed", error: err });
 
     // 1️⃣ Restore old inventory quantities
@@ -224,15 +234,14 @@ exports.updateJob = (req, res) => {
       (err, oldMaterials) => {
         if (err) return connection.rollback(() => res.status(500).json({ message: "Failed to fetch old materials", error: err }));
 
-        const restoreInventory = (index) => {
+        const restoreInventory = index => {
           if (index >= oldMaterials.length) return updateJobTable();
 
           const m = oldMaterials[index];
-
           connection.query(
             `UPDATE main_inventory SET quantity = quantity + ? WHERE item_id = ?`,
             [Number(m.quantity), m.item_id],
-            (err) => {
+            err => {
               if (err) return connection.rollback(() => res.status(500).json({ message: "Inventory restore failed", error: err }));
               restoreInventory(index + 1);
             }
@@ -241,12 +250,41 @@ exports.updateJob = (req, res) => {
 
         restoreInventory(0);
 
-        // 2️⃣ Update job table
+        // 2️⃣ Update jobs table with all fields
         function updateJobTable() {
           connection.query(
-            `UPDATE jobs SET job_name = ?, quantity = ?, status = ? WHERE job_id = ?`,
-            [job_name, quantity, status, jobId],
-            (err) => {
+            `UPDATE jobs SET
+               job_name = ?,
+               product_type = ?,
+               paper_type_id = ?,
+               quantity = ?,
+               coating = ?,
+               packing_date = ?,
+               expiry_date = ?,
+               description = ?,
+               artwork = ?,
+               remarks = ?,
+               status = ?,
+               completed_qty = ?,
+               wastage = ?
+             WHERE job_id = ?`,
+            [
+              job_name,
+              product_type,
+              paper_type_id,
+              quantity,
+              coating,
+              packing_date,
+              expiry_date,
+              description,
+              artwork,
+              remarks,
+              status,
+              completed_qty,
+              wastage,
+              jobId
+            ],
+            err => {
               if (err) return connection.rollback(() => res.status(500).json({ message: "Job update failed", error: err }));
               deleteOldMaterials();
             }
@@ -255,15 +293,15 @@ exports.updateJob = (req, res) => {
 
         // 3️⃣ Delete old materials
         function deleteOldMaterials() {
-          connection.query(`DELETE FROM job_materials WHERE job_id = ?`, [jobId], (err) => {
+          connection.query(`DELETE FROM job_materials WHERE job_id = ?`, [jobId], err => {
             if (err) return connection.rollback(() => res.status(500).json({ message: "Failed to delete old materials", error: err }));
             insertNewMaterials(0);
           });
         }
 
-        // 4️⃣ Insert new materials
+        // 4️⃣ Insert new materials and deduct inventory
         function insertNewMaterials(index) {
-          if (index >= materials.length) return replacePaperCoating(); // 👈 NEXT STEP
+          if (index >= materials.length) return upsertPaperCoating();
 
           const m = materials[index];
 
@@ -286,15 +324,14 @@ exports.updateJob = (req, res) => {
                  (job_id, item_id, material_type, material_name, quantity, status, remarks)
                  VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 [jobId, m.item_id, m.material_type, m.material_name, m.quantity, m.status, m.remarks],
-                (err) => {
+                err => {
                   if (err) return connection.rollback(() => res.status(500).json({ message: "Material insert failed", error: err }));
 
                   connection.query(
                     `UPDATE main_inventory SET quantity = quantity - ? WHERE item_id = ?`,
                     [Number(m.quantity), m.item_id],
-                    (err) => {
+                    err => {
                       if (err) return connection.rollback(() => res.status(500).json({ message: "Inventory deduction failed", error: err }));
-
                       insertNewMaterials(index + 1);
                     }
                   );
@@ -304,58 +341,35 @@ exports.updateJob = (req, res) => {
           );
         }
 
-        // 5️⃣ Replace paper coating data
-        function replacePaperCoating() {
-          upsertPaperCoating(0);
-        }
-
-        function upsertPaperCoating(index) {
+        // 5️⃣ Upsert paper coating
+        function upsertPaperCoating(index = 0) {
           if (index >= paperCoating.length) {
-            return connection.commit((err) => {
-              if (err)
-                return connection.rollback(() =>
-                  res.status(500).json({ message: "Commit failed", error: err })
-                );
+            return connection.commit(err => {
+              if (err) return connection.rollback(() => res.status(500).json({ message: "Commit failed", error: err }));
 
-              res.status(200).json({
-                message: "Job updated successfully",
-                job_id: jobId
-              });
+              res.status(200).json({ message: "Job updated successfully", job_id: jobId });
             });
           }
 
           const p = paperCoating[index];
 
-          // ✅ UPDATE if id exists
           if (p.id) {
+            // UPDATE existing
             connection.query(
-              `UPDATE paper_coating_data
-       SET paper = ?, coating = ?, delivery_date = ?
-       WHERE id = ? AND job_id = ?`,
+              `UPDATE paper_coating_data SET paper = ?, coating = ?, delivery_date = ? WHERE id = ? AND job_id = ?`,
               [p.paper, p.coating, p.delivery_date, p.id, jobId],
-              (err) => {
-                if (err)
-                  return connection.rollback(() =>
-                    res.status(500).json({ message: "Paper coating update failed", error: err })
-                  );
-
+              err => {
+                if (err) return connection.rollback(() => res.status(500).json({ message: "Paper coating update failed", error: err }));
                 upsertPaperCoating(index + 1);
               }
             );
-          }
-          // ✅ INSERT if new
-          else {
+          } else {
+            // INSERT new
             connection.query(
-              `INSERT INTO paper_coating_data
-       (job_id, paper, coating, delivery_date)
-       VALUES (?, ?, ?, ?)`,
+              `INSERT INTO paper_coating_data (job_id, paper, coating, delivery_date) VALUES (?, ?, ?, ?)`,
               [jobId, p.paper, p.coating, p.delivery_date],
-              (err) => {
-                if (err)
-                  return connection.rollback(() =>
-                    res.status(500).json({ message: "Paper coating insert failed", error: err })
-                  );
-
+              err => {
+                if (err) return connection.rollback(() => res.status(500).json({ message: "Paper coating insert failed", error: err }));
                 upsertPaperCoating(index + 1);
               }
             );
@@ -365,6 +379,7 @@ exports.updateJob = (req, res) => {
     );
   });
 };
+
 
 
 
