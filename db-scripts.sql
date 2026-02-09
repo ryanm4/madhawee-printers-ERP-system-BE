@@ -61,6 +61,7 @@ CREATE TABLE
     `job_id` INT NOT NULL AUTO_INCREMENT,
     `po_id` INT NULL,
     `customer_id` VARCHAR(45) NULL,
+    `job_item` VARCHAR(45) NULL,
     `job_name` VARCHAR(45) NULL,
     `job_open_date` DATETIME NULL,
     `product_type` VARCHAR(45) NULL,

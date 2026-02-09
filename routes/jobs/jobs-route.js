@@ -188,6 +188,24 @@ jobsRouter.route("/")
 /**
  * @swagger
  * /jobs/{jobId}:
+ *   get:
+ *     summary: Get a job by ID
+ *     tags: [Jobs]
+ *     parameters:
+ *       - name: jobId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Job ID
+ *     responses:
+ *       200:
+ *         description: Job retrieved successfully
+ *       404:
+ *         description: Job not found
+ *       500:
+ *         description: Internal server error
+ *
  *   put:
  *     summary: Update a job
  *     tags: [Jobs]
@@ -197,7 +215,7 @@ jobsRouter.route("/")
  *         required: true
  *         schema:
  *           type: integer
- *         description: The job ID
+ *         description: Job ID
  *     requestBody:
  *       required: true
  *       content:
@@ -210,13 +228,33 @@ jobsRouter.route("/")
  *                 example: 5005
  *               job_name:
  *                 type: string
- *                 example: "Print Job D"
+ *                 example: Print Job D
+ *               product_type:
+ *                 type: string
+ *                 example: "1"
  *               quantity:
  *                 type: integer
  *                 example: 10000
+ *               packing_date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2026-01-20"
+ *               expiry_date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2026-06-20"
+ *               description:
+ *                 type: string
+ *                 example: Sample job
+ *               artwork:
+ *                 type: string
+ *                 example: artwork.pdf
+ *               remarks:
+ *                 type: string
+ *                 example: Urgent
  *               status:
  *                 type: string
- *                 example: "OPEN"
+ *                 example: OPEN
  *               materials:
  *                 type: array
  *                 items:
@@ -229,16 +267,16 @@ jobsRouter.route("/")
  *                       example: 1004
  *                     material_name:
  *                       type: string
- *                       example: "A4 Paper"
+ *                       example: A4 Paper
  *                     material_type:
  *                       type: string
- *                       example: "Paper"
+ *                       example: Paper
  *                     quantity:
  *                       type: integer
  *                       example: 40
  *                     status:
  *                       type: string
- *                       example: "USED"
+ *                       example: USED
  *                     remarks:
  *                       type: string
  *                       example: ""
@@ -252,10 +290,10 @@ jobsRouter.route("/")
  *                       example: 6
  *                     paper:
  *                       type: string
- *                       example: "GSM 2"
+ *                       example: GSM 2
  *                     coating:
  *                       type: string
- *                       example: "Gloss"
+ *                       example: Gloss
  *                     delivery_date:
  *                       type: string
  *                       format: date-time
@@ -269,10 +307,30 @@ jobsRouter.route("/")
  *         description: Job not found
  *       500:
  *         description: Internal server error
+ *
+ *   delete:
+ *     summary: Delete a job
+ *     tags: [Jobs]
+ *     parameters:
+ *       - name: jobId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Job ID
+ *     responses:
+ *       200:
+ *         description: Job deleted successfully
+ *       404:
+ *         description: Job not found
+ *       500:
+ *         description: Internal server error
  */
+
 
 jobsRouter.route("/:jobId")
     .get(jobsController.getJobById)
-    .put(jobsController.updateJob);
+    .put(jobsController.updateJob)
+    .delete(jobsController.deleteJob);
 
 module.exports = jobsRouter;

@@ -56,6 +56,7 @@ exports.createJob = (req, res) => {
   const {
     po_id,
     customer_id,
+    job_item,
     job_name,
     job_open_date,
     product_type,
@@ -85,12 +86,12 @@ exports.createJob = (req, res) => {
     // 1️⃣ Insert Job
     connection.query(
       `INSERT INTO jobs
-      (po_id, customer_id, job_name, job_open_date, product_type, paper_type_id,
+      (po_id, customer_id, job_item,job_name, job_open_date, product_type, paper_type_id,
        quantity, coating, packing_date, expiry_date,
        description, artwork, remarks, status, completed_qty, wastage)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        po_id, customer_id, job_name, job_open_date, product_type, paper_type_id,
+        po_id, customer_id, job_item, job_name, job_open_date, product_type, paper_type_id,
         quantity, coating, packing_date, expiry_date,
         description, artwork, remarks, status, completed_qty, wastage
       ],
@@ -218,6 +219,7 @@ exports.updateJob = (req, res) => {
     artwork = null,
     remarks = null,
     status = null,
+    job_item = null,
     completed_qty = 0,
     wastage = "0",
     materials = [],
@@ -254,25 +256,26 @@ exports.updateJob = (req, res) => {
         function updateJobTable() {
           connection.query(
             `UPDATE jobs SET
-               job_name = ?,
-               product_type = ?,
-               paper_type_id = ?,
-               quantity = ?,
-               coating = ?,
-               packing_date = ?,
-               expiry_date = ?,
-               description = ?,
-               artwork = ?,
-               remarks = ?,
-               status = ?,
-               completed_qty = ?,
-               wastage = ?
-             WHERE job_id = ?`,
+              job_name = ?,
+              product_type = ?,
+              paper_type_id = ?,
+              quantity = ?,
+              coating = ?,
+              packing_date = ?,
+              expiry_date = ?,
+              description = ?,
+              artwork = ?,
+              remarks = ?,
+              status = ?,
+              completed_qty = ?,
+              job_item = ?,
+              wastage = ?
+              WHERE job_id = ?`,
             [
               job_name,
               product_type,
               paper_type_id,
-              quantity,
+              quantity,        // ✅ fixed
               coating,
               packing_date,
               expiry_date,
@@ -281,15 +284,21 @@ exports.updateJob = (req, res) => {
               remarks,
               status,
               completed_qty,
+              job_item,        // ✅ fixed
               wastage,
               jobId
             ],
             err => {
-              if (err) return connection.rollback(() => res.status(500).json({ message: "Job update failed", error: err }));
+              if (err)
+                return connection.rollback(() =>
+                  res.status(500).json({ message: "Job update failed", error: err })
+                );
+
               deleteOldMaterials();
             }
           );
         }
+
 
         // 3️⃣ Delete old materials
         function deleteOldMaterials() {
@@ -483,4 +492,141 @@ exports.getJobById = (req, res) => {
       );
     }
   );
+};
+
+exports.deleteJob = (req, res) => {
+  const jobId = req.params.jobId;
+
+  if (!jobId) {
+    return res.status(400).json({ message: "jobId parameter is required" });
+  }
+
+  connection.beginTransaction(err => {
+    if (err) {
+      return res.status(500).json({
+        message: "Transaction start failed",
+        error: err
+      });
+    }
+
+    // 1️⃣ Get materials to restore inventory
+    connection.query(
+      `SELECT item_id, quantity FROM job_materials WHERE job_id = ?`,
+      [jobId],
+      (err, materials) => {
+        if (err) {
+          return connection.rollback(() =>
+            res.status(500).json({
+              message: "Failed to fetch job materials",
+              error: err
+            })
+          );
+        }
+
+        // 2️⃣ Restore inventory
+        const restoreInventory = index => {
+          if (index >= materials.length) {
+            return deletePaperCoating();
+          }
+
+          const m = materials[index];
+
+          connection.query(
+            `UPDATE main_inventory 
+             SET quantity = quantity + ? 
+             WHERE item_id = ?`,
+            [Number(m.quantity), m.item_id],
+            err => {
+              if (err) {
+                return connection.rollback(() =>
+                  res.status(500).json({
+                    message: "Inventory restore failed",
+                    error: err
+                  })
+                );
+              }
+
+              restoreInventory(index + 1);
+            }
+          );
+        };
+
+        // 3️⃣ Delete paper coating data
+        const deletePaperCoating = () => {
+          connection.query(
+            `DELETE FROM paper_coating_data WHERE job_id = ?`,
+            [jobId],
+            err => {
+              if (err) {
+                return connection.rollback(() =>
+                  res.status(500).json({
+                    message: "Failed to delete paper coating data",
+                    error: err
+                  })
+                );
+              }
+
+              deleteMaterials();
+            }
+          );
+        };
+
+        // 4️⃣ Delete job materials
+        const deleteMaterials = () => {
+          connection.query(
+            `DELETE FROM job_materials WHERE job_id = ?`,
+            [jobId],
+            err => {
+              if (err) {
+                return connection.rollback(() =>
+                  res.status(500).json({
+                    message: "Failed to delete job materials",
+                    error: err
+                  })
+                );
+              }
+
+              deleteJobRow();
+            }
+          );
+        };
+
+        // 5️⃣ Delete job
+        const deleteJobRow = () => {
+          connection.query(
+            `DELETE FROM jobs WHERE job_id = ?`,
+            [jobId],
+            err => {
+              if (err) {
+                return connection.rollback(() =>
+                  res.status(500).json({
+                    message: "Failed to delete job",
+                    error: err
+                  })
+                );
+              }
+
+              connection.commit(err => {
+                if (err) {
+                  return connection.rollback(() =>
+                    res.status(500).json({
+                      message: "Commit failed",
+                      error: err
+                    })
+                  );
+                }
+
+                res.status(200).json({
+                  status: "success",
+                  message: "Job deleted successfully"
+                });
+              });
+            }
+          );
+        };
+
+        restoreInventory(0);
+      }
+    );
+  });
 };
