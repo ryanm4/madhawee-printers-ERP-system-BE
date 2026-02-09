@@ -199,3 +199,13 @@ CREATE TABLE
     PRIMARY KEY (`id`),
     UNIQUE INDEX `email_UNIQUE` (`email` ASC) VISIBLE
   );
+
+CREATE TABLE
+  `erp-madhawi-db`.`paper_coating_data` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `job_id` INT NULL,
+    `paper` VARCHAR(45) NULL,
+    `coating` VARCHAR(45) NULL,
+    `delivery_date` DATETIME NULL,
+    PRIMARY KEY (`id`)
+  );
