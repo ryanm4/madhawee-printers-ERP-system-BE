@@ -75,7 +75,9 @@ CREATE TABLE
     `remarks` VARCHAR(45) NULL,
     `status` VARCHAR(45) NULL,
     `completed_qty` INT ZEROFILL NOT NULL,
-    `wastage` VARCHAR(45) NULL PRIMARY KEY (`job_id`)
+    `wastage` VARCHAR(45) NULL,
+    `job_number` VARCHAR(45) NULL,
+    PRIMARY KEY (`job_id`)
   );
 
 CREATE TABLE

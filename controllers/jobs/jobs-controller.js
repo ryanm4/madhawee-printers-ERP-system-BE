@@ -71,8 +71,9 @@ exports.createJob = (req, res) => {
     status,
     completed_qty,
     wastage,
+    job_number, // template comes from body
     materials = [],
-    paperCoating = [] // 👈 NEW
+    paperCoating = []
   } = req.body;
 
   if (!req.body) {
@@ -83,10 +84,10 @@ exports.createJob = (req, res) => {
     if (err)
       return res.status(500).json({ message: "Transaction start failed", error: err });
 
-    // 1️⃣ Insert Job
+    // 1️⃣ Insert Job (WITHOUT job_number first)
     connection.query(
       `INSERT INTO jobs
-      (po_id, customer_id, job_item,job_name, job_open_date, product_type, paper_type_id,
+      (po_id, customer_id, job_item, job_name, job_open_date, product_type, paper_type_id,
        quantity, coating, packing_date, expiry_date,
        description, artwork, remarks, status, completed_qty, wastage)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -103,102 +104,128 @@ exports.createJob = (req, res) => {
 
         const jobId = jobResult.insertId;
 
-        // 2️⃣ Insert Materials
-        const insertMaterials = (index) => {
-          if (index >= materials.length) {
-            return insertPaperCoating(0); // 👈 NEXT STEP
-          }
+        // 2️⃣ Generate Job Number
+        const year = new Date().getFullYear().toString().slice(-2);
+        const paddedId = String(jobId).padStart(4, "0");
 
-          const m = materials[index];
+        let finalJobNumber = null;
 
-          connection.query(
-            `SELECT quantity FROM main_inventory WHERE item_id = ? FOR UPDATE`,
-            [m.item_id],
-            (err, inventory) => {
-              if (err || inventory.length === 0) {
-                return connection.rollback(() =>
-                  res.status(400).json({
-                    message: `Inventory item not found: item_id ${m.item_id}`
-                  })
-                );
+        if (job_number) {
+          finalJobNumber = job_number
+            .replace("####", paddedId)
+            .replace("YY", year);
+        }
+
+        // 3️⃣ Update job_number
+        connection.query(
+          `UPDATE jobs SET job_number = ? WHERE job_id = ?`,
+          [finalJobNumber, jobId],
+          (err) => {
+            if (err)
+              return connection.rollback(() =>
+                res.status(500).json({ message: "Job number update failed", error: err })
+              );
+
+            // 4️⃣ Insert Materials
+            const insertMaterials = (index) => {
+              if (index >= materials.length) {
+                return insertPaperCoating(0);
               }
 
-              if (Number(inventory[0].quantity) < Number(m.quantity)) {
-                return connection.rollback(() =>
-                  res.status(400).json({
-                    message: `Insufficient stock for ${m.material_name}`
-                  })
-                );
-              }
+              const m = materials[index];
 
               connection.query(
-                `INSERT INTO job_materials
-                 (job_id, item_id, material_type, material_name, quantity, status, remarks)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [jobId, m.item_id, m.material_type, m.material_name, m.quantity, m.status, m.remarks],
-                (err) => {
-                  if (err)
+                `SELECT quantity FROM main_inventory WHERE item_id = ? FOR UPDATE`,
+                [m.item_id],
+                (err, inventory) => {
+                  if (err || inventory.length === 0) {
                     return connection.rollback(() =>
-                      res.status(500).json({ message: "Material insert failed", error: err })
+                      res.status(400).json({
+                        message: `Inventory item not found: item_id ${m.item_id}`
+                      })
                     );
+                  }
+
+                  if (Number(inventory[0].quantity) < Number(m.quantity)) {
+                    return connection.rollback(() =>
+                      res.status(400).json({
+                        message: `Insufficient stock for ${m.material_name}`
+                      })
+                    );
+                  }
 
                   connection.query(
-                    `UPDATE main_inventory SET quantity = quantity - ? WHERE item_id = ?`,
-                    [Number(m.quantity), m.item_id],
+                    `INSERT INTO job_materials
+                     (job_id, item_id, material_type, material_name, quantity, status, remarks)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    [jobId, m.item_id, m.material_type, m.material_name, m.quantity, m.status, m.remarks],
                     (err) => {
                       if (err)
                         return connection.rollback(() =>
-                          res.status(500).json({ message: "Inventory deduction failed", error: err })
+                          res.status(500).json({ message: "Material insert failed", error: err })
                         );
 
-                      insertMaterials(index + 1);
+                      connection.query(
+                        `UPDATE main_inventory SET quantity = quantity - ? WHERE item_id = ?`,
+                        [Number(m.quantity), m.item_id],
+                        (err) => {
+                          if (err)
+                            return connection.rollback(() =>
+                              res.status(500).json({ message: "Inventory deduction failed", error: err })
+                            );
+
+                          insertMaterials(index + 1);
+                        }
+                      );
                     }
                   );
                 }
               );
-            }
-          );
-        };
+            };
 
-        // 3️⃣ Insert Paper Coating
-        const insertPaperCoating = (index) => {
-          if (index >= paperCoating.length) {
-            return connection.commit((err) => {
-              if (err)
-                return connection.rollback(() =>
-                  res.status(500).json({ message: "Commit failed", error: err })
-                );
+            // 5️⃣ Insert Paper Coating
+            const insertPaperCoating = (index) => {
+              if (index >= paperCoating.length) {
+                return connection.commit((err) => {
+                  if (err)
+                    return connection.rollback(() =>
+                      res.status(500).json({ message: "Commit failed", error: err })
+                    );
 
-              res.status(201).json({
-                message: "Job created successfully",
-                job_id: jobId
-              });
-            });
+                  res.status(201).json({
+                    message: "Job created successfully",
+                    job_id: jobId,
+                    job_number: finalJobNumber
+                  });
+                });
+              }
+
+              const p = paperCoating[index];
+
+              connection.query(
+                `INSERT INTO paper_coating_data
+                 (job_id, paper, coating, delivery_date)
+                 VALUES (?, ?, ?, ?)`,
+                [jobId, p.paper, p.coating, p.delivery_date],
+                (err) => {
+                  if (err)
+                    return connection.rollback(() =>
+                      res.status(500).json({ message: "Paper coating insert failed", error: err })
+                    );
+
+                  insertPaperCoating(index + 1);
+                }
+              );
+            };
+
+            insertMaterials(0);
           }
-
-          const p = paperCoating[index];
-
-          connection.query(
-            `INSERT INTO paper_coating_data
-             (job_id, paper, coating, delivery_date)
-             VALUES (?, ?, ?, ?)`,
-            [jobId, p.paper, p.coating, p.delivery_date],
-            (err) => {
-              if (err)
-                return connection.rollback(() =>
-                  res.status(500).json({ message: "Paper coating insert failed", error: err })
-                );
-
-              insertPaperCoating(index + 1);
-            }
-          );
-        };
-
-        insertMaterials(0);
+        );
       }
     );
   });
 };
+
 
 
 
