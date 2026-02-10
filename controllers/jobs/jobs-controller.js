@@ -3,7 +3,18 @@ const connection = require("../../sql-connection");
 exports.getJobsByPOId = (req, res, next) => {
   const poId = req.params.poId;
 
-  const query = "SELECT * FROM jobs WHERE po_id = ?";
+  const query = `
+    SELECT 
+      j.*,
+      pcd.id AS coating_id,
+      pcd.paper,
+      pcd.coating,
+      pcd.delivery_date
+    FROM jobs j
+    LEFT JOIN paper_coating_data pcd 
+      ON j.id = pcd.job_id
+    WHERE j.po_id = ?
+  `;
 
   connection.query(query, [poId], (err, results) => {
     if (err) {
@@ -18,24 +29,41 @@ exports.getJobsByPOId = (req, res, next) => {
       });
     }
 
-    // ✅ Always return jobs as an array
-    // ✅ Convert paper_type_id to array
-    const jobs = results.map((job) => ({
-      ...job,
-      paper_type_id: job.paper_type_id
-        ? job.paper_type_id
-          .toString()
-          .split(",")
-          .map((id) => Number(id))
-        : [],
-    }));
+    // 🔹 Group rows by job
+    const jobMap = {};
+
+    results.forEach((row) => {
+      if (!jobMap[row.id]) {
+        jobMap[row.id] = {
+          ...row,
+          paper_type_id: row.paper_type_id
+            ? row.paper_type_id
+                .toString()
+                .split(",")
+                .map((id) => Number(id))
+            : [],
+          paper_coating_data: [],
+        };
+      }
+
+      // Add coating if exists
+      if (row.coating_id) {
+        jobMap[row.id].paper_coating_data.push({
+          id: row.coating_id,
+          paper: row.paper,
+          coating: row.coating,
+          delivery_date: row.delivery_date,
+        });
+      }
+    });
 
     res.status(200).json({
       status: "success",
-      data: jobs,
+      data: Object.values(jobMap),
     });
   });
 };
+
 
 exports.getAllJobs = (req, res, next) => {
   const query = `SELECT * FROM \`erp-madhawi-db\`.\`jobs\`;`;
