@@ -100,6 +100,12 @@ exports.createJob = (req, res) => {
     completed_qty,
     wastage,
     job_number,
+    old_plate_quantity,
+    old_plate_status,
+    old_plate_remarks,
+    new_plate_quantity,
+    new_plate_status,
+    new_plate_remarks,
     materials = [],
     paperCoating = [],
     inks = [] // ✅ NEW
@@ -118,12 +124,18 @@ exports.createJob = (req, res) => {
       `INSERT INTO jobs
       (po_id, customer_id, job_item, job_name, job_open_date, product_type, paper_type_id,
        quantity, coating, packing_date, expiry_date,
-       description, artwork, remarks, status, completed_qty, wastage)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       description, artwork, remarks, status, completed_qty, wastage, old_plate_quantity, old_plate_status, old_plate_remarks, new_plate_quantity, new_plate_status, new_plate_remarks)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         po_id, customer_id, job_item, job_name, job_open_date, product_type, paper_type_id,
         quantity, coating, packing_date, expiry_date,
-        description, artwork, remarks, status, completed_qty, wastage
+        description, artwork, remarks, status, completed_qty, wastage,
+        old_plate_quantity,
+        old_plate_status,
+        old_plate_remarks,
+        new_plate_quantity,
+        new_plate_status,
+        new_plate_remarks
       ],
       (err, jobResult) => {
         if (err)
