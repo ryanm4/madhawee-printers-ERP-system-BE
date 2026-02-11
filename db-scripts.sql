@@ -212,3 +212,14 @@ CREATE TABLE
     `delivery_date` DATETIME NULL,
     PRIMARY KEY (`id`)
   );
+
+CREATE TABLE
+  `erp-madhawi-db`.`job_ink_data` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `job_id` VARCHAR(45) NULL,
+    `ink` VARCHAR(45) NULL,
+    `quantity` VARCHAR(45) NULL,
+    `status` VARCHAR(45) NULL,
+    `remarks` VARCHAR(45) NULL,
+    PRIMARY KEY (`id`)
+  );
