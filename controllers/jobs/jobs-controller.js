@@ -9,11 +9,19 @@ exports.getJobsByPOId = (req, res, next) => {
       pcd.id AS coating_id,
       pcd.paper,
       pcd.coating,
-      pcd.delivery_date
+      pcd.delivery_date,
+      jid.id AS ink_id,
+      jid.ink,
+      jid.quantity,
+      jid.status AS ink_status,
+      jid.remarks AS ink_remarks
     FROM jobs j
     LEFT JOIN paper_coating_data pcd 
-      ON j.id = pcd.job_id
-    WHERE j.po_id = ?
+      ON j.job_id = pcd.job_id
+    LEFT JOIN job_ink_data jid
+      ON j.job_id = jid.job_id
+    WHERE j.po_id = ? 
+    ORDER BY j.created_on DESC
   `;
 
   connection.query(query, [poId], (err, results) => {
@@ -33,26 +41,38 @@ exports.getJobsByPOId = (req, res, next) => {
     const jobMap = {};
 
     results.forEach((row) => {
-      if (!jobMap[row.id]) {
-        jobMap[row.id] = {
+      if (!jobMap[row.job_id]) {
+        jobMap[row.job_id] = {
           ...row,
           paper_type_id: row.paper_type_id
             ? row.paper_type_id
-              .toString()
-              .split(",")
-              .map((id) => Number(id))
+                .toString()
+                .split(",")
+                .map((id) => Number(id))
             : [],
           paper_coating_data: [],
+          job_ink_data: [],
         };
       }
 
       // Add coating if exists
       if (row.coating_id) {
-        jobMap[row.id].paper_coating_data.push({
+        jobMap[row.job_id].paper_coating_data.push({
           id: row.coating_id,
           paper: row.paper,
           coating: row.coating,
           delivery_date: row.delivery_date,
+        });
+      }
+
+      // Add ink if exists
+      if (row.ink_id) {
+        jobMap[row.job_id].job_ink_data.push({
+          id: row.ink_id,
+          ink: row.ink,
+          quantity: row.quantity,
+          status: row.ink_status,
+          remarks: row.ink_remarks,
         });
       }
     });
@@ -65,8 +85,11 @@ exports.getJobsByPOId = (req, res, next) => {
 };
 
 
+
+
+
 exports.getAllJobs = (req, res, next) => {
-  const query = `SELECT * FROM \`erp-madhawi-db\`.\`jobs\`;`;
+  const query = `SELECT * FROM \`erp-madhawi-db\`.\`jobs\` ;`;
   connection.query(query, (err, results) => {
     if (err) {
       console.error("Error fetching quotes:", err);
@@ -106,6 +129,7 @@ exports.createJob = (req, res) => {
     new_plate_quantity,
     new_plate_status,
     new_plate_remarks,
+    created_by,   // Comes from body
     materials = [],
     paperCoating = [],
     inks = [] // ✅ NEW
@@ -114,6 +138,8 @@ exports.createJob = (req, res) => {
   if (!req.body) {
     return res.status(400).json({ message: "Request body missing" });
   }
+
+  const createdOn = new Date(); // system datetime
 
   connection.beginTransaction((err) => {
     if (err)
@@ -124,8 +150,11 @@ exports.createJob = (req, res) => {
       `INSERT INTO jobs
       (po_id, customer_id, job_item, job_name, job_open_date, product_type, paper_type_id,
        quantity, coating, packing_date, expiry_date,
-       description, artwork, remarks, status, completed_qty, wastage, old_plate_quantity, old_plate_status, old_plate_remarks, new_plate_quantity, new_plate_status, new_plate_remarks)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       description, artwork, remarks, status, completed_qty, wastage,
+       old_plate_quantity, old_plate_status, old_plate_remarks,
+       new_plate_quantity, new_plate_status, new_plate_remarks,
+       created_on, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         po_id, customer_id, job_item, job_name, job_open_date, product_type, paper_type_id,
         quantity, coating, packing_date, expiry_date,
@@ -135,7 +164,9 @@ exports.createJob = (req, res) => {
         old_plate_remarks,
         new_plate_quantity,
         new_plate_status,
-        new_plate_remarks
+        new_plate_remarks,
+        createdOn,
+        created_by
       ],
       (err, jobResult) => {
         if (err)
@@ -149,7 +180,7 @@ exports.createJob = (req, res) => {
         const year = new Date().getFullYear().toString().slice(-2);
         const paddedId = String(jobId).padStart(4, "0");
 
-        let finalJobNumber = job_number
+        const finalJobNumber = job_number
           ? job_number.replace("####", paddedId).replace("YY", year)
           : null;
 
@@ -234,7 +265,7 @@ exports.createJob = (req, res) => {
               );
             };
 
-            // 6️⃣ ✅ Insert Inks
+            // 6️⃣ Insert Inks
             const insertInks = (index) => {
               if (index >= inks.length) {
                 return connection.commit((err) => {
@@ -300,10 +331,13 @@ exports.updateJob = (req, res) => {
     job_item = null,
     completed_qty = 0,
     wastage = "0",
+    updated_by, // ✅ comes from body
     materials = [],
     paperCoating = [],
     inks = [] // ✅ UPDATE ONLY
   } = req.body;
+
+  const updatedOn = new Date(); // system datetime
 
   connection.beginTransaction(err => {
     if (err)
@@ -355,7 +389,8 @@ exports.updateJob = (req, res) => {
             `UPDATE jobs SET
               job_name=?, product_type=?, paper_type_id=?, quantity=?, coating=?,
               packing_date=?, expiry_date=?, description=?, artwork=?,
-              remarks=?, status=?, completed_qty=?, job_item=?, wastage=?
+              remarks=?, status=?, completed_qty=?, job_item=?, wastage=?,
+              updated_on=?, updated_by=?
              WHERE job_id=?`,
             [
               job_name,
@@ -372,6 +407,8 @@ exports.updateJob = (req, res) => {
               completed_qty,
               job_item,
               wastage,
+              updatedOn,
+              updated_by,
               jobId
             ],
             err => {
@@ -576,7 +613,6 @@ exports.updateJob = (req, res) => {
     );
   });
 };
-
 
 
 

@@ -83,6 +83,10 @@ CREATE TABLE
     `new_plate_quantity` INT NULL AFTER,
     `new_plate_status` VARCHAR(45) NULL,
     `new_plate_remarks` VARCHAR(45) NULL,
+    `created_on` DATETIME NULL,
+    `created_by` VARCHAR(45) NULL,
+    `updated_on` DATETIME NULL,
+    `updated_by` VARCHAR(45) NULL,
     PRIMARY KEY (`job_id`)
   );
 
