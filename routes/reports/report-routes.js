@@ -109,4 +109,7 @@ reportRouter.route("/").post(reportController.generateReport);
  */
 reportRouter.route("/dashboard/insights").post(reportController.getDashboardInsights);
 
+
+reportRouter.route("/summary").post(reportController.getAllDataReports);
+
 module.exports = reportRouter;

@@ -143,6 +143,10 @@ CREATE TABLE
     `reorder_level` VARCHAR(45) NULL,
     `status` VARCHAR(45) NULL,
     `remarks` VARCHAR(45) NULL,
+    `created_on` DATETIME NULL,
+    `created_by` VARCHAR(45) NULL,
+    `updated_on` DATETIME NULL,
+    `updated_by` VARCHAR(45) NULL,
     PRIMARY KEY (`item_id`)
   );
 

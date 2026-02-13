@@ -58,27 +58,28 @@ exports.createInventoryItem = (req, res, next) => {
     item_category,
     item_sub_category,
     item_name,
-    size,
     quantity,
     unit_of_measure,
     reorder_level,
     status,
     remarks,
+    created_by,
   } = req.body;
 
   const query = `
-  INSERT INTO main_inventory (
-    item_category,
-    item_sub_category,
-    item_name,
-    size,
-    quantity,
-    unit_of_measure,
-    reorder_level,
-    status,
-    remarks
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-`;
+    INSERT INTO main_inventory (
+      item_category,
+      item_sub_category,
+      item_name,
+      quantity,
+      unit_of_measure,
+      reorder_level,
+      status,
+      remarks,
+      created_on,
+      created_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
+  `;
 
   connection.query(
     query,
@@ -86,12 +87,12 @@ exports.createInventoryItem = (req, res, next) => {
       item_category,
       item_sub_category,
       item_name,
-      size,
       quantity,
       unit_of_measure,
       reorder_level,
       status,
       remarks,
+      created_by,
     ],
     (err, result) => {
       if (err) {
@@ -107,6 +108,8 @@ exports.createInventoryItem = (req, res, next) => {
   );
 };
 
+
+
 exports.updateInventoryItem = (req, res, next) => {
   const { item_id } = req.params;
 
@@ -114,12 +117,12 @@ exports.updateInventoryItem = (req, res, next) => {
     item_category,
     item_sub_category,
     item_name,
-    size,
     quantity,
     unit_of_measure,
     reorder_level,
     status,
     remarks,
+    updated_by,
   } = req.body;
 
   const query = `
@@ -128,12 +131,13 @@ exports.updateInventoryItem = (req, res, next) => {
       item_category = ?,
       item_sub_category = ?,
       item_name = ?,
-      size = ?,
       quantity = ?,
       unit_of_measure = ?,
       reorder_level = ?,
       status = ?,
-      remarks = ?
+      remarks = ?,
+      updated_on = NOW(),
+      updated_by = ?
     WHERE item_id = ?
   `;
 
@@ -143,13 +147,13 @@ exports.updateInventoryItem = (req, res, next) => {
       item_category,
       item_sub_category,
       item_name,
-      size,
       quantity,
       unit_of_measure,
       reorder_level,
       status,
       remarks,
-      item_id,
+      updated_by, // ✅ correct order
+      item_id,    // ✅ correct order
     ],
     (err, result) => {
       if (err) {
@@ -165,6 +169,8 @@ exports.updateInventoryItem = (req, res, next) => {
     }
   );
 };
+
+
 
 exports.deleteInventoryItem = (req, res, next) => {
   const { item_id } = req.params;

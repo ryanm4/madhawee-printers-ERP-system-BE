@@ -159,6 +159,7 @@ exports.getPObyId = (req, res, next) => {
       /* ---------- Jobs ---------- */
       j.job_id,
       j.job_open_date,
+      j.job_item,
       j.product_type,
       j.paper_type_id,
       j.quantity AS job_quantity,
@@ -275,6 +276,7 @@ exports.getPObyId = (req, res, next) => {
       if (!jobMap[r.job_id]) {
         jobMap[r.job_id] = {
           job_id: r.job_id,
+          job_item: r.job_item,
           job_open_date: r.job_open_date,
           product_type: r.product_type,
           paper_type_id: r.paper_type_id,

@@ -282,3 +282,56 @@ exports.getDashboardInsights = (req, res) => {
     });
   });
 };
+
+
+
+exports.getAllDataReports = (req, res, next) => {
+  const { reportType, filters = {} } = req.body;
+
+  // ✅ Whitelist allowed tables to prevent SQL injection
+  const allowedTables = [
+    "quotations",
+    "purchase_orders",
+    "jobs",
+    "customers",
+    "dispatch",
+    "main_inventory"
+  ];
+
+  if (!allowedTables.includes(reportType)) {
+    return res.status(400).json({
+      message: "Invalid report type"
+    });
+  }
+
+  let query = `SELECT * FROM \`erp-madhawi-db\`.\`${reportType}\``;
+  const params = [];
+  const conditions = [];
+
+  // ✅ Date range filter
+  if (filters.fromDate && filters.toDate) {
+    conditions.push(`DATE(created_on) BETWEEN ? AND ?`);
+    params.push(filters.fromDate, filters.toDate);
+  }
+
+  // Add WHERE if conditions exist
+  if (conditions.length > 0) {
+    query += " WHERE " + conditions.join(" AND ");
+  }
+
+  connection.query(query, params, (err, results) => {
+    if (err) {
+      console.error("Report fetch error:", err);
+      return res.status(500).json({
+        message: "Database error",
+        error: err
+      });
+    }
+
+    res.json({
+      success: true,
+      count: results.length,
+      data: results
+    });
+  });
+};
