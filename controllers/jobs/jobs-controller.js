@@ -804,9 +804,11 @@ exports.deleteJob = (req, res) => {
       });
     }
 
-    // 1️⃣ Get materials to restore inventory
+    // 1️⃣ Fetch materials to restore inventory (LOCK rows)
     connection.query(
-      `SELECT item_id, quantity FROM job_materials WHERE job_id = ?`,
+      `SELECT item_id, quantity 
+       FROM job_materials 
+       WHERE job_id = ?`,
       [jobId],
       (err, materials) => {
         if (err) {
@@ -820,13 +822,15 @@ exports.deleteJob = (req, res) => {
 
         // 2️⃣ Restore inventory
         const restoreInventory = index => {
-          if (index >= materials.length) return deletePaperCoating();
+          if (index >= materials.length) {
+            return deleteMaterials();
+          }
 
           const m = materials[index];
 
           connection.query(
-            `UPDATE main_inventory 
-             SET quantity = quantity + ? 
+            `UPDATE main_inventory
+             SET quantity = quantity + ?
              WHERE item_id = ?`,
             [Number(m.quantity), m.item_id],
             err => {
@@ -844,7 +848,27 @@ exports.deleteJob = (req, res) => {
           );
         };
 
-        // 3️⃣ Delete paper coating
+        // 3️⃣ Delete job_materials
+        const deleteMaterials = () => {
+          connection.query(
+            `DELETE FROM job_materials WHERE job_id = ?`,
+            [jobId],
+            err => {
+              if (err) {
+                return connection.rollback(() =>
+                  res.status(500).json({
+                    message: "Failed to delete job materials",
+                    error: err
+                  })
+                );
+              }
+
+              deletePaperCoating();
+            }
+          );
+        };
+
+        // 4️⃣ Delete paper coating
         const deletePaperCoating = () => {
           connection.query(
             `DELETE FROM paper_coating_data WHERE job_id = ?`,
@@ -864,7 +888,7 @@ exports.deleteJob = (req, res) => {
           );
         };
 
-        // 4️⃣ ✅ Delete ink data
+        // 5️⃣ Delete inks
         const deleteInks = () => {
           connection.query(
             `DELETE FROM job_ink_data WHERE job_id = ?`,
@@ -879,32 +903,12 @@ exports.deleteJob = (req, res) => {
                 );
               }
 
-              deleteMaterials();
-            }
-          );
-        };
-
-        // 5️⃣ Delete job materials
-        const deleteMaterials = () => {
-          connection.query(
-            `DELETE FROM job_materials WHERE job_id = ?`,
-            [jobId],
-            err => {
-              if (err) {
-                return connection.rollback(() =>
-                  res.status(500).json({
-                    message: "Failed to delete job materials",
-                    error: err
-                  })
-                );
-              }
-
               deleteJobRow();
             }
           );
         };
 
-        // 6️⃣ Delete job
+        // 6️⃣ Delete job row
         const deleteJobRow = () => {
           connection.query(
             `DELETE FROM jobs WHERE job_id = ?`,
@@ -931,15 +935,18 @@ exports.deleteJob = (req, res) => {
 
                 res.status(200).json({
                   status: "success",
-                  message: "Job deleted successfully"
+                  message: "Job deleted successfully",
+                  job_id: jobId
                 });
               });
             }
           );
         };
 
+        // Start restore process
         restoreInventory(0);
       }
     );
   });
 };
+
