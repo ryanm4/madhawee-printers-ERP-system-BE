@@ -46,9 +46,9 @@ exports.getJobsByPOId = (req, res, next) => {
           ...row,
           paper_type_id: row.paper_type_id
             ? row.paper_type_id
-                .toString()
-                .split(",")
-                .map((id) => Number(id))
+              .toString()
+              .split(",")
+              .map((id) => Number(id))
             : [],
           paper_coating_data: [],
           job_ink_data: [],
@@ -129,17 +129,16 @@ exports.createJob = (req, res) => {
     new_plate_quantity,
     new_plate_status,
     new_plate_remarks,
-    created_by,   // Comes from body
-    materials = [],
+    created_by,
     paperCoating = [],
-    inks = [] // ✅ NEW
+    inks = []
   } = req.body;
 
   if (!req.body) {
     return res.status(400).json({ message: "Request body missing" });
   }
 
-  const createdOn = new Date(); // system datetime
+  const createdOn = new Date();
 
   connection.beginTransaction((err) => {
     if (err)
@@ -159,14 +158,9 @@ exports.createJob = (req, res) => {
         po_id, customer_id, job_item, job_name, job_open_date, product_type, paper_type_id,
         quantity, coating, packing_date, expiry_date,
         description, artwork, remarks, status, completed_qty, wastage,
-        old_plate_quantity,
-        old_plate_status,
-        old_plate_remarks,
-        new_plate_quantity,
-        new_plate_status,
-        new_plate_remarks,
-        createdOn,
-        created_by
+        old_plate_quantity, old_plate_status, old_plate_remarks,
+        new_plate_quantity, new_plate_status, new_plate_remarks,
+        createdOn, created_by
       ],
       (err, jobResult) => {
         if (err)
@@ -184,7 +178,6 @@ exports.createJob = (req, res) => {
           ? job_number.replace("####", paddedId).replace("YY", year)
           : null;
 
-        // 3️⃣ Update job_number
         connection.query(
           `UPDATE jobs SET job_number = ? WHERE job_id = ?`,
           [finalJobNumber, jobId],
@@ -194,78 +187,90 @@ exports.createJob = (req, res) => {
                 res.status(500).json({ message: "Job number update failed", error: err })
               );
 
-            // 4️⃣ Insert Materials
-            const insertMaterials = (index) => {
-              if (index >= materials.length) return insertPaperCoating(0);
+            // 3️⃣ Insert Paper Coating + Materials
+            const insertPaperCoating = (pcIndex) => {
+              if (pcIndex >= paperCoating.length) return insertInks(0);
 
-              const m = materials[index];
-
-              connection.query(
-                `SELECT quantity FROM main_inventory WHERE item_id = ? FOR UPDATE`,
-                [m.item_id],
-                (err, inventory) => {
-                  if (err || inventory.length === 0)
-                    return connection.rollback(() =>
-                      res.status(400).json({ message: `Inventory item not found` })
-                    );
-
-                  if (Number(inventory[0].quantity) < Number(m.quantity))
-                    return connection.rollback(() =>
-                      res.status(400).json({ message: `Insufficient stock` })
-                    );
-
-                  connection.query(
-                    `INSERT INTO job_materials
-                     (job_id, item_id, material_type, material_name, quantity, status, remarks)
-                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                    [jobId, m.item_id, m.material_type, m.material_name, m.quantity, m.status, m.remarks],
-                    (err) => {
-                      if (err)
-                        return connection.rollback(() =>
-                          res.status(500).json({ message: "Material insert failed", error: err })
-                        );
-
-                      connection.query(
-                        `UPDATE main_inventory SET quantity = quantity - ? WHERE item_id = ?`,
-                        [Number(m.quantity), m.item_id],
-                        (err) => {
-                          if (err)
-                            return connection.rollback(() =>
-                              res.status(500).json({ message: "Inventory deduction failed", error: err })
-                            );
-
-                          insertMaterials(index + 1);
-                        }
-                      );
-                    }
-                  );
-                }
-              );
-            };
-
-            // 5️⃣ Insert Paper Coating
-            const insertPaperCoating = (index) => {
-              if (index >= paperCoating.length) return insertInks(0);
-
-              const p = paperCoating[index];
+              const pc = paperCoating[pcIndex];
 
               connection.query(
                 `INSERT INTO paper_coating_data
                  (job_id, paper, coating, delivery_date)
                  VALUES (?, ?, ?, ?)`,
-                [jobId, p.paper, p.coating, p.delivery_date],
+                [jobId, pc.paper, pc.coating, pc.delivery_date],
                 (err) => {
                   if (err)
                     return connection.rollback(() =>
                       res.status(500).json({ message: "Paper coating insert failed", error: err })
                     );
 
-                  insertPaperCoating(index + 1);
+                  const materials = pc.materials || [];
+
+                  const insertMaterials = (mIndex) => {
+                    if (mIndex >= materials.length)
+                      return insertPaperCoating(pcIndex + 1);
+
+                    const m = materials[mIndex];
+
+                    connection.query(
+                      `SELECT quantity FROM main_inventory WHERE item_id = ? FOR UPDATE`,
+                      [m.item_id],
+                      (err, inventory) => {
+                        if (err || inventory.length === 0)
+                          return connection.rollback(() =>
+                            res.status(400).json({ message: "Inventory item not found" })
+                          );
+
+                        if (Number(inventory[0].quantity) < Number(m.quantity))
+                          return connection.rollback(() =>
+                            res.status(400).json({ message: "Insufficient stock" })
+                          );
+
+                        connection.query(
+                          `INSERT INTO job_materials
+                           (job_id, item_id, material_type, material_name, quantity, status, remarks)
+                           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                          [
+                            jobId,
+                            m.item_id,
+                            m.material_type,
+                            m.material_name,
+                            m.quantity,
+                            m.status,
+                            m.remarks
+                          ],
+                          (err) => {
+                            if (err)
+                              return connection.rollback(() =>
+                                res.status(500).json({ message: "Material insert failed", error: err })
+                              );
+
+                            connection.query(
+                              `UPDATE main_inventory
+                               SET quantity = quantity - ?
+                               WHERE item_id = ?`,
+                              [Number(m.quantity), m.item_id],
+                              (err) => {
+                                if (err)
+                                  return connection.rollback(() =>
+                                    res.status(500).json({ message: "Inventory deduction failed", error: err })
+                                  );
+
+                                insertMaterials(mIndex + 1);
+                              }
+                            );
+                          }
+                        );
+                      }
+                    );
+                  };
+
+                  insertMaterials(0);
                 }
               );
             };
 
-            // 6️⃣ Insert Inks
+            // 4️⃣ Insert Inks
             const insertInks = (index) => {
               if (index >= inks.length) {
                 return connection.commit((err) => {
@@ -300,13 +305,14 @@ exports.createJob = (req, res) => {
               );
             };
 
-            insertMaterials(0);
+            insertPaperCoating(0);
           }
         );
       }
     );
   });
 };
+
 
 
 
@@ -331,13 +337,12 @@ exports.updateJob = (req, res) => {
     job_item = null,
     completed_qty = 0,
     wastage = "0",
-    updated_by, // ✅ comes from body
-    materials = [],
+    updated_by,
     paperCoating = [],
-    inks = [] // ✅ UPDATE ONLY
+    inks = []
   } = req.body;
 
-  const updatedOn = new Date(); // system datetime
+  const updatedOn = new Date();
 
   connection.beginTransaction(err => {
     if (err)
@@ -365,7 +370,9 @@ exports.updateJob = (req, res) => {
           const m = oldMaterials[i];
 
           connection.query(
-            `UPDATE main_inventory SET quantity=quantity+? WHERE item_id=?`,
+            `UPDATE main_inventory 
+             SET quantity = quantity + ? 
+             WHERE item_id = ?`,
             [Number(m.quantity), m.item_id],
             err => {
               if (err)
@@ -382,237 +389,248 @@ exports.updateJob = (req, res) => {
         };
 
         restoreInventory(0);
+      }
+    );
 
-        // 2️⃣ Update jobs table
-        function updateJobTable() {
-          connection.query(
-            `UPDATE jobs SET
-              job_name=?, product_type=?, paper_type_id=?, quantity=?, coating=?,
-              packing_date=?, expiry_date=?, description=?, artwork=?,
-              remarks=?, status=?, completed_qty=?, job_item=?, wastage=?,
-              updated_on=?, updated_by=?
-             WHERE job_id=?`,
-            [
-              job_name,
-              product_type,
-              paper_type_id,
-              quantity,
-              coating,
-              packing_date,
-              expiry_date,
-              description,
-              artwork,
-              remarks,
-              status,
-              completed_qty,
-              job_item,
-              wastage,
-              updatedOn,
-              updated_by,
-              jobId
-            ],
-            err => {
-              if (err)
-                return connection.rollback(() =>
-                  res.status(500).json({
-                    message: "Job update failed",
-                    error: err
-                  })
-                );
+    // 2️⃣ Update jobs table
+    function updateJobTable() {
+      connection.query(
+        `UPDATE jobs SET
+          job_name=?, product_type=?, paper_type_id=?, quantity=?, coating=?,
+          packing_date=?, expiry_date=?, description=?, artwork=?,
+          remarks=?, status=?, completed_qty=?, job_item=?, wastage=?,
+          updated_on=?, updated_by=?
+         WHERE job_id=?`,
+        [
+          job_name,
+          product_type,
+          paper_type_id,
+          quantity,
+          coating,
+          packing_date,
+          expiry_date,
+          description,
+          artwork,
+          remarks,
+          status,
+          completed_qty,
+          job_item,
+          wastage,
+          updatedOn,
+          updated_by,
+          jobId
+        ],
+        err => {
+          if (err)
+            return connection.rollback(() =>
+              res.status(500).json({
+                message: "Job update failed",
+                error: err
+              })
+            );
 
-              deleteOldMaterials();
-            }
-          );
+          deleteOldData();
         }
+      );
+    }
 
-        // 3️⃣ Delete old materials
-        function deleteOldMaterials() {
+    // 3️⃣ Delete old materials + paper coating
+    function deleteOldData() {
+      connection.query(
+        `DELETE FROM job_materials WHERE job_id=?`,
+        [jobId],
+        err => {
+          if (err)
+            return connection.rollback(() =>
+              res.status(500).json({
+                message: "Delete old materials failed",
+                error: err
+              })
+            );
+
           connection.query(
-            `DELETE FROM job_materials WHERE job_id=?`,
+            `DELETE FROM paper_coating_data WHERE job_id=?`,
             [jobId],
             err => {
               if (err)
                 return connection.rollback(() =>
                   res.status(500).json({
-                    message: "Delete old materials failed",
+                    message: "Delete old paper coating failed",
                     error: err
                   })
                 );
 
-              insertNewMaterials(0);
+              insertPaperCoating(0);
             }
           );
         }
+      );
+    }
 
-        // 4️⃣ Insert new materials
-        function insertNewMaterials(i) {
-          if (i >= materials.length) return upsertPaperCoating();
+    // 4️⃣ Insert paper coating + nested materials
+    function insertPaperCoating(pcIndex) {
+      if (pcIndex >= paperCoating.length) return updateInks(0);
 
-          const m = materials[i];
+      const pc = paperCoating[pcIndex];
 
-          connection.query(
-            `SELECT quantity FROM main_inventory WHERE item_id=? FOR UPDATE`,
-            [m.item_id],
-            (err, inv) => {
-              if (err || inv.length === 0)
-                return connection.rollback(() =>
-                  res.status(400).json({
-                    message: "Inventory item not found"
-                  })
-                );
+      connection.query(
+        `INSERT INTO paper_coating_data
+         (job_id, paper, coating, delivery_date)
+         VALUES (?, ?, ?, ?)`,
+        [jobId, pc.paper, pc.coating, pc.delivery_date],
+        err => {
+          if (err)
+            return connection.rollback(() =>
+              res.status(500).json({
+                message: "Paper coating insert failed",
+                error: err
+              })
+            );
 
-              if (Number(inv[0].quantity) < Number(m.quantity))
-                return connection.rollback(() =>
-                  res.status(400).json({
-                    message: "Insufficient stock"
-                  })
-                );
+          const materials = pc.materials || [];
 
-              connection.query(
-                `INSERT INTO job_materials
-                 (job_id,item_id,material_type,material_name,quantity,status,remarks)
-                 VALUES (?,?,?,?,?,?,?)`,
-                [
-                  jobId,
-                  m.item_id,
-                  m.material_type,
-                  m.material_name,
-                  m.quantity,
-                  m.status,
-                  m.remarks
-                ],
-                err => {
-                  if (err)
-                    return connection.rollback(() =>
-                      res.status(500).json({
-                        message: "Material insert failed",
-                        error: err
-                      })
-                    );
-
-                  connection.query(
-                    `UPDATE main_inventory SET quantity=quantity-? WHERE item_id=?`,
-                    [Number(m.quantity), m.item_id],
-                    err => {
-                      if (err)
-                        return connection.rollback(() =>
-                          res.status(500).json({
-                            message: "Inventory deduction failed",
-                            error: err
-                          })
-                        );
-
-                      insertNewMaterials(i + 1);
-                    }
-                  );
-                }
-              );
-            }
+          insertMaterials(materials, 0, () =>
+            insertPaperCoating(pcIndex + 1)
           );
         }
+      );
+    }
 
-        // 5️⃣ Upsert Paper Coating
-        function upsertPaperCoating(i = 0) {
-          if (i >= paperCoating.length) return updateInks();
+    // 5️⃣ Insert nested materials
+    function insertMaterials(materials, index, callback) {
+      if (index >= materials.length) return callback();
 
-          const p = paperCoating[i];
+      const m = materials[index];
 
-          if (p.id) {
-            connection.query(
-              `UPDATE paper_coating_data
-               SET paper=?, coating=?, delivery_date=?
-               WHERE id=? AND job_id=?`,
-              [p.paper, p.coating, p.delivery_date, p.id, jobId],
-              err => {
-                if (err)
-                  return connection.rollback(() =>
-                    res.status(500).json({
-                      message: "Paper coating update failed",
-                      error: err
-                    })
-                  );
-
-                upsertPaperCoating(i + 1);
-              }
-            );
-          } else {
-            connection.query(
-              `INSERT INTO paper_coating_data
-               (job_id,paper,coating,delivery_date)
-               VALUES (?,?,?,?)`,
-              [jobId, p.paper, p.coating, p.delivery_date],
-              err => {
-                if (err)
-                  return connection.rollback(() =>
-                    res.status(500).json({
-                      message: "Paper coating insert failed",
-                      error: err
-                    })
-                  );
-
-                upsertPaperCoating(i + 1);
-              }
-            );
-          }
-        }
-
-        // 6️⃣ ✅ UPDATE INKS ONLY
-        function updateInks(i = 0) {
-          if (i >= inks.length) {
-            return connection.commit(err => {
-              if (err)
-                return connection.rollback(() =>
-                  res.status(500).json({
-                    message: "Commit failed",
-                    error: err
-                  })
-                );
-
-              res.status(200).json({
-                message: "Job updated successfully",
-                job_id: jobId
-              });
-            });
-          }
-
-          const ink = inks[i];
-
-          if (!ink.id)
+      connection.query(
+        `SELECT quantity FROM main_inventory WHERE item_id=? FOR UPDATE`,
+        [m.item_id],
+        (err, inv) => {
+          if (err || inv.length === 0)
             return connection.rollback(() =>
               res.status(400).json({
-                message: "Ink ID required for update"
+                message: "Inventory item not found"
+              })
+            );
+
+          if (Number(inv[0].quantity) < Number(m.quantity))
+            return connection.rollback(() =>
+              res.status(400).json({
+                message: "Insufficient stock"
               })
             );
 
           connection.query(
-            `UPDATE job_ink_data
-             SET ink=?, quantity=?, status=?, remarks=?
-             WHERE id=? AND job_id=?`,
+            `INSERT INTO job_materials
+             (job_id,item_id,material_type,material_name,quantity,status,remarks)
+             VALUES (?,?,?,?,?,?,?)`,
             [
-              ink.ink,
-              ink.quantity,
-              ink.status,
-              ink.remarks,
-              ink.id,
-              jobId
+              jobId,
+              m.item_id,
+              m.material_type,
+              m.material_name,
+              m.quantity,
+              m.status,
+              m.remarks
             ],
             err => {
               if (err)
                 return connection.rollback(() =>
                   res.status(500).json({
-                    message: "Ink update failed",
+                    message: "Material insert failed",
                     error: err
                   })
                 );
 
-              updateInks(i + 1);
+              connection.query(
+                `UPDATE main_inventory 
+                 SET quantity=quantity-? 
+                 WHERE item_id=?`,
+                [Number(m.quantity), m.item_id],
+                err => {
+                  if (err)
+                    return connection.rollback(() =>
+                      res.status(500).json({
+                        message: "Inventory deduction failed",
+                        error: err
+                      })
+                    );
+
+                  insertMaterials(materials, index + 1, callback);
+                }
+              );
             }
           );
         }
+      );
+    }
+
+    // 6️⃣ Update inks (update only)
+    function updateInks() {
+      connection.query(
+        `DELETE FROM job_ink_data WHERE job_id=?`,
+        [jobId],
+        err => {
+          if (err)
+            return connection.rollback(() =>
+              res.status(500).json({
+                message: "Delete old inks failed",
+                error: err
+              })
+            );
+
+          insertInks(0);
+        }
+      );
+    }
+
+    function insertInks(index) {
+      if (index >= inks.length) {
+        return connection.commit(err => {
+          if (err)
+            return connection.rollback(() =>
+              res.status(500).json({
+                message: "Commit failed",
+                error: err
+              })
+            );
+
+          res.status(200).json({
+            message: "Job updated successfully",
+            job_id: jobId
+          });
+        });
       }
-    );
+
+      const ink = inks[index];
+
+      connection.query(
+        `INSERT INTO job_ink_data
+     (job_id, ink, quantity, status, remarks)
+     VALUES (?, ?, ?, ?, ?)`,
+        [
+          jobId,
+          ink.ink,
+          ink.quantity,
+          ink.status,
+          ink.remarks
+        ],
+        err => {
+          if (err)
+            return connection.rollback(() =>
+              res.status(500).json({
+                message: "Ink insert failed",
+                error: err
+              })
+            );
+
+          insertInks(index + 1);
+        }
+      );
+    }
   });
 };
+
 
 
 
@@ -630,7 +648,10 @@ exports.getJobById = (req, res) => {
     [jobId],
     (err, jobResults) => {
       if (err)
-        return res.status(500).json({ message: "Failed to fetch job", error: err });
+        return res.status(500).json({
+          message: "Failed to fetch job",
+          error: err
+        });
 
       if (jobResults.length === 0)
         return res.status(404).json({ message: "Job not found" });
@@ -638,44 +659,50 @@ exports.getJobById = (req, res) => {
       const job = jobResults[0];
       const customerId = job.customer_id;
 
-      // 2️⃣ Fetch materials
+      // 2️⃣ Fetch customer
       connection.query(
-        `SELECT jm.*, mi.item_category, mi.item_sub_category, mi.unit_of_measure
-         FROM job_materials jm
-         LEFT JOIN main_inventory mi ON jm.item_id = mi.item_id
-         WHERE jm.job_id = ?`,
-        [jobId],
-        (err, materialResults) => {
+        `SELECT 
+          customer_id, company_name, customer_type, address,
+          phone, email, vat_type, vat_no, logo_url,
+          contact_person, contact_person_email,
+          contact_person_phone, status
+         FROM customers
+         WHERE customer_id = ?`,
+        [customerId],
+        (err, customerResults) => {
           if (err)
             return res.status(500).json({
-              message: "Failed to fetch job materials",
+              message: "Failed to fetch customer",
               error: err
             });
 
-          const materials = materialResults.map(m => ({
-            ...m,
-            quantity: m.quantity ? Number(m.quantity) : 0
-          }));
+          const customer =
+            customerResults.length > 0 ? customerResults[0] : null;
 
-          // 3️⃣ Fetch customer
+          // 3️⃣ Fetch all materials
           connection.query(
-            `SELECT 
-              customer_id, company_name, customer_type, address,
-              phone, email, vat_type, vat_no, logo_url,
-              contact_person, contact_person_email,
-              contact_person_phone, status
-             FROM customers
-             WHERE customer_id = ?`,
-            [customerId],
-            (err, customerResults) => {
+            `SELECT jm.*, mi.item_category, mi.item_sub_category, mi.unit_of_measure
+             FROM job_materials jm
+             LEFT JOIN main_inventory mi ON jm.item_id = mi.item_id
+             WHERE jm.job_id = ?`,
+            [jobId],
+            (err, materialResults) => {
               if (err)
                 return res.status(500).json({
-                  message: "Failed to fetch customer",
+                  message: "Failed to fetch job materials",
                   error: err
                 });
 
-              const customer =
-                customerResults.length > 0 ? customerResults[0] : null;
+              // Convert quantity to number
+              const materials = materialResults.map(m => ({
+                item_id: m.item_id,
+                material_type: m.material_type,
+                material_name: m.material_name,
+                material_description: m.material_description || null,
+                quantity: m.quantity ? Number(m.quantity) : 0,
+                status: m.status,
+                remarks: m.remarks
+              }));
 
               // 4️⃣ Fetch paper coating
               connection.query(
@@ -688,7 +715,17 @@ exports.getJobById = (req, res) => {
                       error: err
                     });
 
-                  // 5️⃣ ✅ Fetch inks
+                  // 🔥 Attach ALL materials to each paper coating
+                  // (Since job_materials does not reference coating_id)
+                  const paperCoating = coatingResults.map(pc => ({
+                    id: pc.id,
+                    paper: pc.paper,
+                    coating: pc.coating,
+                    delivery_date: pc.delivery_date,
+                    materials: materials
+                  }));
+
+                  // 5️⃣ Fetch inks
                   connection.query(
                     `SELECT * FROM job_ink_data WHERE job_id = ?`,
                     [jobId],
@@ -699,15 +736,43 @@ exports.getJobById = (req, res) => {
                           error: err
                         });
 
-                      // 6️⃣ Final response
+                      // 6️⃣ Final structured response
                       res.status(200).json({
                         status: "success",
                         data: {
-                          ...job,
+                          job_id: job.job_id,
+                          po_id: job.po_id,
+                          customer_id: job.customer_id,
+                          job_item: job.job_item,
+                          job_name: job.job_name,
+                          job_open_date: job.job_open_date,
+                          product_type: job.product_type,
+                          paper_type_id: job.paper_type_id,
+                          quantity: job.quantity,
+                          coating: job.coating,
+                          packing_date: job.packing_date,
+                          expiry_date: job.expiry_date,
+                          description: job.description,
+                          artwork: job.artwork,
+                          remarks: job.remarks,
+                          status: job.status,
+                          completed_qty: job.completed_qty,
+                          wastage: job.wastage,
+                          job_number: job.job_number,
+                          old_plate_quantity: job.old_plate_quantity,
+                          old_plate_status: job.old_plate_status,
+                          old_plate_remarks: job.old_plate_remarks,
+                          new_plate_quantity: job.new_plate_quantity,
+                          new_plate_status: job.new_plate_status,
+                          new_plate_remarks: job.new_plate_remarks,
+                          created_on: job.created_on,
+                          created_by: job.created_by,
+                          updated_on: job.updated_on,
+                          updated_by: job.updated_by,
+
                           customer,
-                          materials,
-                          paperCoatingData: coatingResults,
-                          inks: inkResults // ✅ added here
+                          paperCoating,
+                          inks: inkResults
                         }
                       });
                     }
@@ -721,6 +786,7 @@ exports.getJobById = (req, res) => {
     }
   );
 };
+
 
 
 exports.deleteJob = (req, res) => {
