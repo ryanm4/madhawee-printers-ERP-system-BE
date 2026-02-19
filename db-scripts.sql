@@ -98,6 +98,7 @@ CREATE TABLE
     `material_type` VARCHAR(45) NULL,
     `material_name` VARCHAR(45) NULL,
     `material_description` VARCHAR(45) NULL,
+    `size` VARCHAR(45) NULL,
     `quantity` VARCHAR(45) NULL,
     `status` VARCHAR(45) NULL,
     `remarks` VARCHAR(45) NULL,

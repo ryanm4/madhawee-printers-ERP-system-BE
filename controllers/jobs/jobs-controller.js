@@ -142,7 +142,10 @@ exports.createJob = (req, res) => {
 
   connection.beginTransaction((err) => {
     if (err)
-      return res.status(500).json({ message: "Transaction start failed", error: err });
+      return res.status(500).json({
+        message: "Transaction start failed",
+        error: err
+      });
 
     // 1️⃣ Insert Job
     connection.query(
@@ -184,7 +187,10 @@ exports.createJob = (req, res) => {
           (err) => {
             if (err)
               return connection.rollback(() =>
-                res.status(500).json({ message: "Job number update failed", error: err })
+                res.status(500).json({
+                  message: "Job number update failed",
+                  error: err
+                })
               );
 
             // 3️⃣ Insert Paper Coating + Materials
@@ -201,7 +207,10 @@ exports.createJob = (req, res) => {
                 (err) => {
                   if (err)
                     return connection.rollback(() =>
-                      res.status(500).json({ message: "Paper coating insert failed", error: err })
+                      res.status(500).json({
+                        message: "Paper coating insert failed",
+                        error: err
+                      })
                     );
 
                   const materials = pc.materials || [];
@@ -212,29 +221,38 @@ exports.createJob = (req, res) => {
 
                     const m = materials[mIndex];
 
+                    // 🔒 Lock inventory row
                     connection.query(
                       `SELECT quantity FROM main_inventory WHERE item_id = ? FOR UPDATE`,
                       [m.item_id],
                       (err, inventory) => {
                         if (err || inventory.length === 0)
                           return connection.rollback(() =>
-                            res.status(400).json({ message: "Inventory item not found" })
+                            res.status(400).json({
+                              message: "Inventory item not found"
+                            })
                           );
 
                         if (Number(inventory[0].quantity) < Number(m.quantity))
                           return connection.rollback(() =>
-                            res.status(400).json({ message: "Insufficient stock" })
+                            res.status(400).json({
+                              message: "Insufficient stock"
+                            })
                           );
 
+                        // ✅ Insert material WITH SIZE
                         connection.query(
                           `INSERT INTO job_materials
-                           (job_id, item_id, material_type, material_name, quantity, status, remarks)
-                           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                           (job_id, item_id, material_type, material_name, material_description,
+                            size, quantity, status, remarks)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                           [
                             jobId,
                             m.item_id,
                             m.material_type,
                             m.material_name,
+                            m.material_description || null,
+                            m.size || null, // ✅ SIZE ADDED HERE
                             m.quantity,
                             m.status,
                             m.remarks
@@ -242,9 +260,13 @@ exports.createJob = (req, res) => {
                           (err) => {
                             if (err)
                               return connection.rollback(() =>
-                                res.status(500).json({ message: "Material insert failed", error: err })
+                                res.status(500).json({
+                                  message: "Material insert failed",
+                                  error: err
+                                })
                               );
 
+                            // 🔄 Deduct inventory
                             connection.query(
                               `UPDATE main_inventory
                                SET quantity = quantity - ?
@@ -253,7 +275,10 @@ exports.createJob = (req, res) => {
                               (err) => {
                                 if (err)
                                   return connection.rollback(() =>
-                                    res.status(500).json({ message: "Inventory deduction failed", error: err })
+                                    res.status(500).json({
+                                      message: "Inventory deduction failed",
+                                      error: err
+                                    })
                                   );
 
                                 insertMaterials(mIndex + 1);
@@ -276,7 +301,10 @@ exports.createJob = (req, res) => {
                 return connection.commit((err) => {
                   if (err)
                     return connection.rollback(() =>
-                      res.status(500).json({ message: "Commit failed", error: err })
+                      res.status(500).json({
+                        message: "Commit failed",
+                        error: err
+                      })
                     );
 
                   res.status(201).json({
@@ -297,7 +325,10 @@ exports.createJob = (req, res) => {
                 (err) => {
                   if (err)
                     return connection.rollback(() =>
-                      res.status(500).json({ message: "Ink insert failed", error: err })
+                      res.status(500).json({
+                        message: "Ink insert failed",
+                        error: err
+                      })
                     );
 
                   insertInks(index + 1);
@@ -312,6 +343,7 @@ exports.createJob = (req, res) => {
     );
   });
 };
+
 
 
 
@@ -392,7 +424,7 @@ exports.updateJob = (req, res) => {
       }
     );
 
-    // 2️⃣ Update jobs table
+    // 2️⃣ Update job table
     function updateJobTable() {
       connection.query(
         `UPDATE jobs SET
@@ -434,7 +466,7 @@ exports.updateJob = (req, res) => {
       );
     }
 
-    // 3️⃣ Delete old materials + paper coating
+    // 3️⃣ Delete old materials + coating
     function deleteOldData() {
       connection.query(
         `DELETE FROM job_materials WHERE job_id=?`,
@@ -467,9 +499,9 @@ exports.updateJob = (req, res) => {
       );
     }
 
-    // 4️⃣ Insert paper coating + nested materials
+    // 4️⃣ Insert paper coating
     function insertPaperCoating(pcIndex) {
-      if (pcIndex >= paperCoating.length) return updateInks(0);
+      if (pcIndex >= paperCoating.length) return updateInks();
 
       const pc = paperCoating[pcIndex];
 
@@ -496,7 +528,7 @@ exports.updateJob = (req, res) => {
       );
     }
 
-    // 5️⃣ Insert nested materials
+    // 5️⃣ Insert materials (UPDATED WITH SIZE)
     function insertMaterials(materials, index, callback) {
       if (index >= materials.length) return callback();
 
@@ -520,15 +552,19 @@ exports.updateJob = (req, res) => {
               })
             );
 
+          // ✅ UPDATED INSERT WITH SIZE + DESCRIPTION
           connection.query(
             `INSERT INTO job_materials
-             (job_id,item_id,material_type,material_name,quantity,status,remarks)
-             VALUES (?,?,?,?,?,?,?)`,
+             (job_id, item_id, material_type, material_name, material_description,
+              size, quantity, status, remarks)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               jobId,
               m.item_id,
               m.material_type,
               m.material_name,
+              m.material_description || null,
+              m.size || null,   // ✅ SIZE ADDED
               m.quantity,
               m.status,
               m.remarks
@@ -565,7 +601,7 @@ exports.updateJob = (req, res) => {
       );
     }
 
-    // 6️⃣ Update inks (update only)
+    // 6️⃣ Update inks
     function updateInks() {
       connection.query(
         `DELETE FROM job_ink_data WHERE job_id=?`,
@@ -606,15 +642,9 @@ exports.updateJob = (req, res) => {
 
       connection.query(
         `INSERT INTO job_ink_data
-     (job_id, ink, quantity, status, remarks)
-     VALUES (?, ?, ?, ?, ?)`,
-        [
-          jobId,
-          ink.ink,
-          ink.quantity,
-          ink.status,
-          ink.remarks
-        ],
+         (job_id, ink, quantity, status, remarks)
+         VALUES (?, ?, ?, ?, ?)`,
+        [jobId, ink.ink, ink.quantity, ink.status, ink.remarks],
         err => {
           if (err)
             return connection.rollback(() =>
@@ -698,6 +728,7 @@ exports.getJobById = (req, res) => {
                 item_id: m.item_id,
                 material_type: m.material_type,
                 material_name: m.material_name,
+                size: m.size,
                 material_description: m.material_description || null,
                 quantity: m.quantity ? Number(m.quantity) : 0,
                 status: m.status,

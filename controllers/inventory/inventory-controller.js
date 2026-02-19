@@ -58,6 +58,7 @@ exports.createInventoryItem = (req, res, next) => {
     item_category,
     item_sub_category,
     item_name,
+    size,
     quantity,
     unit_of_measure,
     reorder_level,
@@ -71,6 +72,7 @@ exports.createInventoryItem = (req, res, next) => {
       item_category,
       item_sub_category,
       item_name,
+      size,
       quantity,
       unit_of_measure,
       reorder_level,
@@ -78,7 +80,7 @@ exports.createInventoryItem = (req, res, next) => {
       remarks,
       created_on,
       created_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
   `;
 
   connection.query(
@@ -87,6 +89,7 @@ exports.createInventoryItem = (req, res, next) => {
       item_category,
       item_sub_category,
       item_name,
+      size,
       quantity,
       unit_of_measure,
       reorder_level,
@@ -117,6 +120,7 @@ exports.updateInventoryItem = (req, res, next) => {
     item_category,
     item_sub_category,
     item_name,
+    size,
     quantity,
     unit_of_measure,
     reorder_level,
@@ -131,6 +135,7 @@ exports.updateInventoryItem = (req, res, next) => {
       item_category = ?,
       item_sub_category = ?,
       item_name = ?,
+      size = ?,
       quantity = ?,
       unit_of_measure = ?,
       reorder_level = ?,
@@ -147,6 +152,7 @@ exports.updateInventoryItem = (req, res, next) => {
       item_category,
       item_sub_category,
       item_name,
+      size,
       quantity,
       unit_of_measure,
       reorder_level,
