@@ -1,8 +1,8 @@
-const connection = require("../../sql-connection");
+const pool = require("../../sql-connection");
 
 exports.getAllInventoryItems = (req, res, next) => {
   const query = "SELECT * FROM `erp-madhawi-db`.`main_inventory`;";
-  connection.query(query, (err, results) => {
+  pool.query(query, (err, results) => {
     if (err) {
       console.error("Error fetching inventory items:", err);
       return next(err);
@@ -30,7 +30,7 @@ exports.getInventoryItemById = (req, res, next) => {
     WHERE item_id = ?
   `;
 
-  connection.query(query, [item_id], (err, results) => {
+  pool.query(query, [item_id], (err, results) => {
     if (err) {
       console.error("DB Error:", err);
       return res.status(500).json({
@@ -83,7 +83,7 @@ exports.createInventoryItem = (req, res, next) => {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
   `;
 
-  connection.query(
+  pool.query(
     query,
     [
       item_category,
@@ -146,7 +146,7 @@ exports.updateInventoryItem = (req, res, next) => {
     WHERE item_id = ?
   `;
 
-  connection.query(
+  pool.query(
     query,
     [
       item_category,
@@ -183,7 +183,7 @@ exports.deleteInventoryItem = (req, res, next) => {
 
   const query = `DELETE FROM main_inventory WHERE item_id = ?`;
 
-  connection.query(query, [item_id], (err, result) => {
+  pool.query(query, [item_id], (err, result) => {
     if (err) {
       console.error("Error deleting inventory item:", err);
       return res.status(500).json({ message: "Database error" });

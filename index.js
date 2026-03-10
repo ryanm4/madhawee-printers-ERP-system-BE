@@ -23,13 +23,13 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-connection.connect((err) => {
-  if (err) {
-    console.error("Error connecting to the database:", err);
-    return;
-  }
-  console.log("Connected to the MySQL database.");
-});
+// connection.connect((err) => {
+//   if (err) {
+//     console.error("Error connecting to the database:", err);
+//     return;
+//   }
+//   console.log("Connected to the MySQL database.");
+// });
 
 app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 
