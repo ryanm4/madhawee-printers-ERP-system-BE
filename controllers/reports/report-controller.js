@@ -304,7 +304,7 @@ exports.getAllDataReports = (req, res, next) => {
     });
   }
 
-  let query = `SELECT * FROM \`erp-madhawi-db\`.\`${reportType}\``;
+  let query = `SELECT * FROM \`erp_madhawi_db\`.\`${reportType}\``;
   const params = [];
   const conditions = [];
 

@@ -89,7 +89,7 @@ exports.getJobsByPOId = (req, res, next) => {
 
 
 exports.getAllJobs = (req, res, next) => {
-  const query = `SELECT * FROM \`erp-madhawi-db\`.\`jobs\` ;`;
+  const query = `SELECT * FROM \`erp_madhawi_db\`.\`jobs\` ;`;
   pool.query(query, (err, results) => {
     if (err) {
       console.error("Error fetching quotes:", err);

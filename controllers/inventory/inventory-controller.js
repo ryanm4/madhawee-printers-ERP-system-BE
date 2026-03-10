@@ -1,7 +1,7 @@
 const pool = require("../../sql-connection");
 
 exports.getAllInventoryItems = (req, res, next) => {
-  const query = "SELECT * FROM `erp-madhawi-db`.`main_inventory`;";
+  const query = "SELECT * FROM `erp_madhawi_db`.`main_inventory`;";
   pool.query(query, (err, results) => {
     if (err) {
       console.error("Error fetching inventory items:", err);

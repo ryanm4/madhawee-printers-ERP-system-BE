@@ -32,15 +32,15 @@ exports.getAllPOWithJobs = (req, res, next) => {
       j.completed_qty,
       j.wastage
 
-    FROM \`erp-madhawi-db\`.purchase_orders po
+    FROM \`erp_madhawi_db\`.purchase_orders po
 
-    LEFT JOIN \`erp-madhawi-db\`.quotations q
+    LEFT JOIN \`erp_madhawi_db\`.quotations q
       ON q.quote_id = po.quote_id
 
-    LEFT JOIN \`erp-madhawi-db\`.customers c
+    LEFT JOIN \`erp_madhawi_db\`.customers c
       ON c.customer_id = po.customer_id
 
-    LEFT JOIN \`erp-madhawi-db\`.jobs j
+    LEFT JOIN \`erp_madhawi_db\`.jobs j
       ON j.po_id = po.po_id
 
     ORDER BY po.po_id DESC, j.job_id ASC

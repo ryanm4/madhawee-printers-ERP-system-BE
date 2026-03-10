@@ -143,7 +143,7 @@ exports.updateUser = (req, res) => {
     fields.push("updated_on = NOW()");
 
     const query = `
-    UPDATE \`erp-madhawi-db\`.users
+    UPDATE \`erp_madhawi_db\`.users
     SET ${fields.join(", ")}
     WHERE id = ?
   `;

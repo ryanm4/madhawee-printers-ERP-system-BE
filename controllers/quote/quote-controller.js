@@ -8,8 +8,8 @@ exports.getAllQuotes = (req, res, next) => {
   q.currency, q.contact_person AS contact_person,
   q.notes, q.status, q.created_on, q.created_by,
   q.updated_on, q.updated_by
-  FROM \`erp-madhawi-db\`.\`quotations\`
-  q JOIN \`erp-madhawi-db\`.\`customers\` c
+  FROM \`erp_madhawi_db\`.\`quotations\`
+  q JOIN \`erp_madhawi_db\`.\`customers\` c
   ON q.customer_id = c.customer_id
   ORDER BY q.created_on DESC;`;
 

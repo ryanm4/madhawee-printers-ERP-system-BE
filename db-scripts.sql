@@ -1,7 +1,7 @@
-CREATE SCHEMA `erp-madhawi-db`;
+CREATE SCHEMA `erp_madhawi_db`;
 
 CREATE TABLE
-  `erp-madhawi-db`.`quotations` (
+  `erp_madhawi_db`.`quotations` (
     `quote_id` INT NOT NULL AUTO_INCREMENT,
     `customer_id` INT NOT NULL,
     `type_id` INT NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE
   );
 
 CREATE TABLE
-  `erp-madhawi-db`.`quote_items` (
+  `erp_madhawi_db`.`quote_items` (
     `item_id` INT NOT NULL AUTO_INCREMENT,
     `quote_id` VARCHAR(45) NOT NULL,
     `item_category` VARCHAR(45) NULL,
@@ -36,7 +36,7 @@ CREATE TABLE
   );
 
 CREATE TABLE
-  `erp-madhawi-db`.`purchase_orders` (
+  `erp_madhawi_db`.`purchase_orders` (
     `po_id` INT NOT NULL AUTO_INCREMENT,
     `quote_id` INT NULL,
     `customer_id` VARCHAR(45) NULL,
@@ -57,7 +57,7 @@ CREATE TABLE
   );
 
 CREATE TABLE
-  `erp-madhawi-db`.`jobs` (
+  `erp_madhawi_db`.`jobs` (
     `job_id` INT NOT NULL AUTO_INCREMENT,
     `po_id` INT NULL,
     `customer_id` VARCHAR(45) NULL,
@@ -91,7 +91,7 @@ CREATE TABLE
   );
 
 CREATE TABLE
-  `erp-madhawi-db`.`job_materials` (
+  `erp_madhawi_db`.`job_materials` (
     `job_material_id` INT NOT NULL AUTO_INCREMENT,
     `job_id` INT NOT NULL,
     `item_id` INT NULL,
@@ -106,35 +106,35 @@ CREATE TABLE
   );
 
 CREATE TABLE
-  `erp-madhawi-db`.`quote_types` (
+  `erp_madhawi_db`.`quote_types` (
     `type_id` INT NOT NULL AUTO_INCREMENT,
     `type_name` VARCHAR(45) NULL,
     PRIMARY KEY (`type_id`)
   );
 
 CREATE TABLE
-  `erp-madhawi-db`.`tax_types` (
+  `erp_madhawi_db`.`tax_types` (
     `tax_id` INT NOT NULL AUTO_INCREMENT,
     `tax_type_name` VARCHAR(45) NULL,
     PRIMARY KEY (`tax_id`)
   );
 
 CREATE TABLE
-  `erp-madhawi-db`.`paper_types` (
+  `erp_madhawi_db`.`paper_types` (
     `paper_id` INT NOT NULL AUTO_INCREMENT,
     `paper_type_name` VARCHAR(45) NULL,
     PRIMARY KEY (`paper_id`)
   );
 
 CREATE TABLE
-  `erp-madhawi-db`.`products_types` (
+  `erp_madhawi_db`.`products_types` (
     `product_id` INT NOT NULL AUTO_INCREMENT,
     `product_name` VARCHAR(45) NULL,
     PRIMARY KEY (`product_id`)
   );
 
 CREATE TABLE
-  `erp-madhawi-db`.`main_inventory` (
+  `erp_madhawi_db`.`main_inventory` (
     `item_id` INT NOT NULL AUTO_INCREMENT,
     `item_category` VARCHAR(45) NULL,
     `item_sub_category` VARCHAR(45) NULL,
@@ -153,7 +153,7 @@ CREATE TABLE
   );
 
 CREATE TABLE
-  `erp-madhawi-db`.`customers` (
+  `erp_madhawi_db`.`customers` (
     `customer_id` INT NOT NULL AUTO_INCREMENT,
     `company_name` VARCHAR(255) NOT NULL,
     `customer_type` VARCHAR(45) NOT NULL,
@@ -176,7 +176,7 @@ CREATE TABLE
   );
 
 CREATE TABLE
-  `erp-madhawi-db`.`dispatch` (
+  `erp_madhawi_db`.`dispatch` (
     `dispatch_id` INT NOT NULL AUTO_INCREMENT,
     `customer_id` VARCHAR(45) NULL,
     `job_id` VARCHAR(45) NULL,
@@ -195,7 +195,7 @@ CREATE TABLE
   );
 
 CREATE TABLE
-  `erp-madhawi-db`.`po_items_details` (
+  `erp_madhawi_db`.`po_items_details` (
     `po_item_id` INT NOT NULL AUTO_INCREMENT,
     `po_id` VARCHAR(45) NULL,
     `item_code` VARCHAR(45) NULL,
@@ -207,7 +207,7 @@ CREATE TABLE
   );
 
 CREATE TABLE
-  `erp-madhawi-db`.`users` (
+  `erp_madhawi_db`.`users` (
     `id` INT NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(100) NULL,
     `email` VARCHAR(100) NULL,
@@ -220,7 +220,7 @@ CREATE TABLE
   );
 
 CREATE TABLE
-  `erp-madhawi-db`.`paper_coating_data` (
+  `erp_madhawi_db`.`paper_coating_data` (
     `id` INT NOT NULL AUTO_INCREMENT,
     `job_id` INT NULL,
     `paper` VARCHAR(45) NULL,
@@ -230,7 +230,7 @@ CREATE TABLE
   );
 
 CREATE TABLE
-  `erp-madhawi-db`.`job_ink_data` (
+  `erp_madhawi_db`.`job_ink_data` (
     `id` INT NOT NULL AUTO_INCREMENT,
     `job_id` VARCHAR(45) NULL,
     `ink` VARCHAR(45) NULL,

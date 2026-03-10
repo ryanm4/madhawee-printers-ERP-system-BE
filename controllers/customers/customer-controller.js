@@ -1,7 +1,7 @@
 const pool = require("../../sql-connection");
 
 exports.getAllCustomers = (req, res, next) => {
-  const query = `SELECT * FROM \`erp-madhawi-db\`.\`customers\`;`;
+  const query = `SELECT * FROM \`erp_madhawi_db\`.\`customers\`;`;
   pool.query(query, (err, results) => {
     // console.log(results);
     if (err) {
