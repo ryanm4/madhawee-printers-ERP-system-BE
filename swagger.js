@@ -1,6 +1,5 @@
 const swaggerJSDoc = require('swagger-jsdoc');
 
-
 const swaggerOptions = {
     swaggerDefinition: {
         openapi: "3.0.0",
@@ -10,7 +9,9 @@ const swaggerOptions = {
         },
         servers: [
             {
-                url: "http://localhost:3000/api/v1",
+                url: process.env.NODE_ENV === 'production'
+                    ? `${process.env.PROD_URL}/api/v1`   // ✅ uses env variable
+                    : "http://localhost:3000/api/v1",
             },
         ],
         components: {
@@ -29,10 +30,7 @@ const swaggerOptions = {
         ],
     },
     apis: ["./routes/*.js", "./routes/**/*.js"],
-
 };
-
 
 const swaggerSpec = swaggerJSDoc(swaggerOptions);
 module.exports = swaggerSpec;
-

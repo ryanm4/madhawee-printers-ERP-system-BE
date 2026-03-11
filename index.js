@@ -41,7 +41,17 @@ app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 app.use("/api/v1/auth", authRouter);
 
 // ✅ 5. Token verification middleware
-app.use(verifyToken);
+app.use('/api',verifyToken);
+
+app.get('/debug-swagger', (req, res) => {
+  const path = require('path');
+  const swaggerUiPath = require('swagger-ui-express');
+  res.json({
+    swaggerUiExpressVersion: require('./node_modules/swagger-ui-express/package.json').version,
+    nodeEnv: process.env.NODE_ENV,
+    port: process.env.PORT,
+  });
+});
 
 // ✅ 6. Protected routes
 app.use("/api/v1/quotes", quoteRouter);
@@ -51,6 +61,8 @@ app.use("/api/v1/jobs", jobsRouter);
 app.use("/api/v1/dispatch", dispatchRouter);
 app.use("/api/v1/inventory", inventoryRouter);
 app.use("/api/v1/reports", reportRouter);
+
+
 
 // ✅ 7. Error handler LAST
 app.use((err, req, res, next) => {
