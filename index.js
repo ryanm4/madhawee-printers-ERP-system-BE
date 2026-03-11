@@ -31,6 +31,15 @@ app.use(cors());
 //   console.log("Connected to the MySQL database.");
 // });
 
+connection.getConnection((err, conn) => {
+  if (err) {
+    console.error("Database connection failed:", err);
+  } else {
+    console.log("Database connected successfully");
+    conn.release();
+  }
+});
+
 app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 
 const server = app.listen(port, () => {
