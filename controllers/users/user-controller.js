@@ -1,4 +1,4 @@
-const connection = require("../../sql-connection");
+const pool = require("../../sql-connection");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
@@ -17,7 +17,7 @@ exports.userRegistration = async (req, res, next) => {
       VALUES (?, ?, ?, ?, ?, ?)
     `;
 
-        connection.query(
+        pool.query(
             query,
             [name, email, hashedPassword, user_role, now, now],
             (err) => {
@@ -42,7 +42,7 @@ exports.userRegistration = async (req, res, next) => {
 exports.userLogin = (req, res, next) => {
     const { email, password } = req.body;
     const query = "SELECT * FROM users WHERE email = ?";
-    connection.query(query, [email], async (err, results) => {
+    pool.query(query, [email], async (err, results) => {
         if (err) {
             console.error("Error during login:", err);
             return next(err);
@@ -95,7 +95,7 @@ exports.getAllUsers = (req, res, next) => {
         FROM users
     `;
 
-    connection.query(query, (err, results) => {
+    pool.query(query, (err, results) => {
         if (err) {
             console.error("Error fetching users:", err);
             return next(err);
@@ -143,14 +143,14 @@ exports.updateUser = (req, res) => {
     fields.push("updated_on = NOW()");
 
     const query = `
-    UPDATE \`erp-madhawi-db\`.users
+    UPDATE \`erp_madhawi_db\`.users
     SET ${fields.join(", ")}
     WHERE id = ?
   `;
 
     values.push(id);
 
-    connection.query(query, values, (err, result) => {
+    pool.query(query, values, (err, result) => {
         if (err) {
             if (err.code === "ER_DUP_ENTRY") {
                 return res.status(409).json({ message: "Email already exists" });

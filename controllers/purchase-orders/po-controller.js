@@ -1,4 +1,4 @@
-const connection = require("../../sql-connection");
+const pool = require("../../sql-connection");
 
 exports.getAllPOWithJobs = (req, res, next) => {
   const query = `
@@ -32,21 +32,21 @@ exports.getAllPOWithJobs = (req, res, next) => {
       j.completed_qty,
       j.wastage
 
-    FROM \`erp-madhawi-db\`.purchase_orders po
+    FROM \`erp_madhawi_db\`.purchase_orders po
 
-    LEFT JOIN \`erp-madhawi-db\`.quotations q
+    LEFT JOIN \`erp_madhawi_db\`.quotations q
       ON q.quote_id = po.quote_id
 
-    LEFT JOIN \`erp-madhawi-db\`.customers c
+    LEFT JOIN \`erp_madhawi_db\`.customers c
       ON c.customer_id = po.customer_id
 
-    LEFT JOIN \`erp-madhawi-db\`.jobs j
+    LEFT JOIN \`erp_madhawi_db\`.jobs j
       ON j.po_id = po.po_id
 
     ORDER BY po.po_id DESC, j.job_id ASC
   `;
 
-  connection.query(query, (err, results) => {
+  pool.query(query, (err, results) => {
     if (err) {
       console.error("Error fetching POs with jobs:", err);
       return next(err);
@@ -191,7 +191,7 @@ exports.getPObyId = (req, res, next) => {
     WHERE p.po_id = ?;
   `;
 
-  connection.query(query, [poId], (err, results) => {
+  pool.query(query, [poId], (err, results) => {
     if (err) {
       console.error("Error fetching PO:", err);
       return next(err);
@@ -340,13 +340,40 @@ exports.createPurchaseOrder = (req, res, next) => {
     po_items = [],
   } = req.body;
 
-  /* ---------- START TRANSACTION ---------- */
-  connection.beginTransaction((err) => {
+  /* GET CONNECTION FROM POOL */
+  pool.getConnection((err, conn) => {
+
     if (err) return next(err);
 
-    /* ---------- INSERT PURCHASE ORDER ---------- */
-    const poQuery = `
-      INSERT INTO purchase_orders (
+    /* START TRANSACTION */
+    conn.beginTransaction((err) => {
+
+      if (err) {
+        conn.release();
+        return next(err);
+      }
+
+      const poQuery = `
+        INSERT INTO purchase_orders (
+          quote_id,
+          customer_id,
+          po_type_id,
+          batch_ref,
+          po_date,
+          delivery_date,
+          TC_E_PR_No,
+          approved_on,
+          approved_by,
+          created_on,
+          created_by,
+          updated_on,
+          updated_by,
+          status,
+          customer_po
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?)
+      `;
+
+      const poValues = [
         quote_id,
         customer_id,
         po_type_id,
@@ -356,87 +383,87 @@ exports.createPurchaseOrder = (req, res, next) => {
         TC_E_PR_No,
         approved_on,
         approved_by,
-        created_on,
         created_by,
-        updated_on,
         updated_by,
         status,
-        customer_po
-      ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?
-      )
-    `;
+        customer_po,
+      ];
 
-    const poValues = [
-      quote_id,
-      customer_id,
-      po_type_id,
-      batch_ref,
-      po_date,
-      delivery_date,
-      TC_E_PR_No,
-      approved_on,
-      approved_by,
-      created_by,
-      updated_by,
-      status,
-      customer_po,
-    ];
+      conn.query(poQuery, poValues, (err, result) => {
 
-    connection.query(poQuery, poValues, (err, result) => {
-      if (err) {
-        return connection.rollback(() => next(err));
-      }
-
-      const generatedPoId = result.insertId;
-
-      /* ---------- NO ITEMS CASE ---------- */
-      if (!Array.isArray(po_items) || po_items.length === 0) {
-        return connection.commit(() => {
-          res.status(201).json({
-            status: "success",
-            message: "Purchase Order created successfully",
-            po_id: generatedPoId,
-          });
-        });
-      }
-
-      /* ---------- INSERT PO ITEMS ---------- */
-      const itemQuery = `
-        INSERT INTO po_items_details
-          (po_id, item_code, description, quantity, uom, price)
-        VALUES ?
-      `;
-
-      const itemValues = po_items.map((item) => [
-        generatedPoId,
-        item.item_code,
-        item.description,
-        item.quantity,
-        item.uom,
-        item.price,
-      ]);
-
-      connection.query(itemQuery, [itemValues], (err) => {
         if (err) {
-          return connection.rollback(() => next(err));
+          return conn.rollback(() => {
+            conn.release();
+            next(err);
+          });
         }
 
-        /* ---------- COMMIT TRANSACTION ---------- */
-        connection.commit((err) => {
+        const generatedPoId = result.insertId;
+
+        if (!Array.isArray(po_items) || po_items.length === 0) {
+          return conn.commit((err) => {
+
+            conn.release();
+
+            if (err) return next(err);
+
+            res.status(201).json({
+              status: "success",
+              message: "Purchase Order created successfully",
+              po_id: generatedPoId,
+            });
+
+          });
+        }
+
+        const itemQuery = `
+          INSERT INTO po_items_details
+          (po_id, item_code, description, quantity, uom, price)
+          VALUES ?
+        `;
+
+        const itemValues = po_items.map((item) => [
+          generatedPoId,
+          item.item_code,
+          item.description,
+          item.quantity,
+          item.uom,
+          item.price,
+        ]);
+
+        conn.query(itemQuery, [itemValues], (err) => {
+
           if (err) {
-            return connection.rollback(() => next(err));
+            return conn.rollback(() => {
+              conn.release();
+              next(err);
+            });
           }
 
-          res.status(201).json({
-            status: "success",
-            message: "Purchase Order and items created successfully",
-            po_id: generatedPoId,
+          conn.commit((err) => {
+
+            conn.release();
+
+            if (err) {
+              return conn.rollback(() => next(err));
+            }
+
+            res.status(201).json({
+              status: "success",
+              message: "Purchase Order and items created successfully",
+              po_id: generatedPoId,
+            });
+
           });
+
         });
+
       });
+
     });
+
   });
+
 };
 
 exports.updatePurchaseOrder = (req, res, next) => {
@@ -463,108 +490,131 @@ exports.updatePurchaseOrder = (req, res, next) => {
     return new Date(dateString).toISOString().slice(0, 19).replace("T", " ");
   };
 
-  /* ---------- START TRANSACTION ---------- */
-  connection.beginTransaction((err) => {
+  /* ---------- GET CONNECTION FROM POOL ---------- */
+  pool.getConnection((err, connection) => {
     if (err) return next(err);
 
-    /* ---------- UPDATE PURCHASE ORDER ---------- */
-    const poQuery = `
-      UPDATE purchase_orders
-      SET
-        quote_id = ?,
-        customer_id = ?,
-        po_type_id = ?,
-        batch_ref = ?,
-        po_date = ?,
-        delivery_date = ?,
-        TC_E_PR_No = ?,
-        approved_on = ?,
-        approved_by = ?,
-        updated_on = NOW(),
-        updated_by = ?,
-        status = ?,
-        customer_po = ?
-      WHERE po_id = ?
-    `;
-
-    const poValues = [
-      quote_id,
-      customer_id,
-      po_type_id,
-      batch_ref,
-      toMysqlDatetime(po_date),
-      toMysqlDatetime(delivery_date),
-      TC_E_PR_No,
-      toMysqlDatetime(approved_on),
-      approved_by,
-      updated_by,
-      status,
-      customer_po,
-      poId,
-    ];
-
-    connection.query(poQuery, poValues, (err, result) => {
+    connection.beginTransaction((err) => {
       if (err) {
-        return connection.rollback(() => next(err));
+        connection.release();
+        return next(err);
       }
 
-      if (result.affectedRows === 0) {
-        return connection.rollback(() =>
-          res.status(404).json({
-            status: "fail",
-            message: "Purchase order not found",
-          })
-        );
-      }
-
-      /* ---------- DELETE OLD PO ITEMS ---------- */
-      const deleteItemsQuery = `
-        DELETE FROM po_items_details WHERE po_id = ?
+      /* ---------- UPDATE PURCHASE ORDER ---------- */
+      const poQuery = `
+        UPDATE purchase_orders
+        SET
+          quote_id = ?,
+          customer_id = ?,
+          po_type_id = ?,
+          batch_ref = ?,
+          po_date = ?,
+          delivery_date = ?,
+          TC_E_PR_No = ?,
+          approved_on = ?,
+          approved_by = ?,
+          updated_on = NOW(),
+          updated_by = ?,
+          status = ?,
+          customer_po = ?
+        WHERE po_id = ?
       `;
 
-      connection.query(deleteItemsQuery, [poId], (err) => {
+      const poValues = [
+        quote_id,
+        customer_id,
+        po_type_id,
+        batch_ref,
+        toMysqlDatetime(po_date),
+        toMysqlDatetime(delivery_date),
+        TC_E_PR_No,
+        toMysqlDatetime(approved_on),
+        approved_by,
+        updated_by,
+        status,
+        customer_po,
+        poId,
+      ];
+
+      connection.query(poQuery, poValues, (err, result) => {
         if (err) {
-          return connection.rollback(() => next(err));
+          return connection.rollback(() => {
+            connection.release();
+            next(err);
+          });
         }
 
-        /* ---------- INSERT UPDATED PO ITEMS ---------- */
-        if (!po_items.length) {
-          return connection.commit(() =>
-            res.status(200).json({
-              status: "success",
-              message: "Purchase order updated successfully",
-            })
-          );
-        }
-
-        const insertItemsQuery = `
-          INSERT INTO po_items_details
-            (po_id, item_code, description, quantity, uom, price)
-          VALUES ?
-        `;
-
-        const itemValues = po_items.map((item) => [
-          poId,
-          item.item_code,
-          item.description,
-          item.quantity,
-          item.uom,
-          item.price,
-        ]);
-
-        connection.query(insertItemsQuery, [itemValues], (err) => {
-          if (err) {
-            return connection.rollback(() => next(err));
-          }
-
-          /* ---------- COMMIT ---------- */
-          connection.commit(() => {
-            res.status(200).json({
-              status: "success",
-              message: "Purchase order and items updated successfully",
+        if (result.affectedRows === 0) {
+          return connection.rollback(() => {
+            connection.release();
+            res.status(404).json({
+              status: "fail",
+              message: "Purchase order not found",
             });
           });
-        });
+        }
+
+        /* ---------- DELETE OLD ITEMS ---------- */
+        connection.query(
+          `DELETE FROM po_items_details WHERE po_id = ?`,
+          [poId],
+          (err) => {
+            if (err) {
+              return connection.rollback(() => {
+                connection.release();
+                next(err);
+              });
+            }
+
+            if (!po_items.length) {
+              return connection.commit((err) => {
+                connection.release();
+                if (err) return next(err);
+
+                res.status(200).json({
+                  status: "success",
+                  message: "Purchase order updated successfully",
+                });
+              });
+            }
+
+            /* ---------- INSERT NEW ITEMS ---------- */
+            const insertItemsQuery = `
+              INSERT INTO po_items_details
+              (po_id, item_code, description, quantity, uom, price)
+              VALUES ?
+            `;
+
+            const itemValues = po_items.map((item) => [
+              poId,
+              item.item_code,
+              item.description,
+              item.quantity,
+              item.uom,
+              item.price,
+            ]);
+
+            connection.query(insertItemsQuery, [itemValues], (err) => {
+              if (err) {
+                return connection.rollback(() => {
+                  connection.release();
+                  next(err);
+                });
+              }
+
+              /* ---------- COMMIT ---------- */
+              connection.commit((err) => {
+                connection.release();
+                if (err) return next(err);
+
+                res.status(200).json({
+                  status: "success",
+                  message: "Purchase order and items updated successfully",
+                });
+              });
+            });
+          }
+        );
       });
     });
   });
@@ -573,46 +623,65 @@ exports.updatePurchaseOrder = (req, res, next) => {
 exports.deletePurchaseOrder = (req, res, next) => {
   const poId = req.params.poId;
 
-  /* ---------- START TRANSACTION ---------- */
-  connection.beginTransaction((err) => {
+  /* ---------- GET CONNECTION FROM POOL ---------- */
+  pool.getConnection((err, connection) => {
     if (err) return next(err);
 
-    /* ---------- DELETE PO ITEMS ---------- */
-    const deleteItemsQuery = `
-      DELETE FROM po_items_details
-      WHERE po_id = ?
-    `;
-
-    connection.query(deleteItemsQuery, [poId], (err) => {
+    /* ---------- START TRANSACTION ---------- */
+    connection.beginTransaction((err) => {
       if (err) {
-        return connection.rollback(() => next(err));
+        connection.release();
+        return next(err);
       }
 
-      /* ---------- DELETE PURCHASE ORDER ---------- */
-      const deletePOQuery = `
-        DELETE FROM purchase_orders
+      /* ---------- DELETE PO ITEMS ---------- */
+      const deleteItemsQuery = `
+        DELETE FROM po_items_details
         WHERE po_id = ?
       `;
 
-      connection.query(deletePOQuery, [poId], (err, result) => {
+      connection.query(deleteItemsQuery, [poId], (err) => {
         if (err) {
-          return connection.rollback(() => next(err));
+          return connection.rollback(() => {
+            connection.release();
+            next(err);
+          });
         }
 
-        if (result.affectedRows === 0) {
-          return connection.rollback(() =>
-            res.status(404).json({
-              status: "fail",
-              message: "Purchase order not found",
-            })
-          );
-        }
+        /* ---------- DELETE PURCHASE ORDER ---------- */
+        const deletePOQuery = `
+          DELETE FROM purchase_orders
+          WHERE po_id = ?
+        `;
 
-        /* ---------- COMMIT ---------- */
-        connection.commit(() => {
-          res.status(200).json({
-            status: "success",
-            message: "Purchase order deleted successfully",
+        connection.query(deletePOQuery, [poId], (err, result) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              next(err);
+            });
+          }
+
+          if (result.affectedRows === 0) {
+            return connection.rollback(() => {
+              connection.release();
+              res.status(404).json({
+                status: "fail",
+                message: "Purchase order not found",
+              });
+            });
+          }
+
+          /* ---------- COMMIT ---------- */
+          connection.commit((err) => {
+            connection.release();
+
+            if (err) return next(err);
+
+            res.status(200).json({
+              status: "success",
+              message: "Purchase order deleted successfully",
+            });
           });
         });
       });

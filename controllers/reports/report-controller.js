@@ -1,9 +1,9 @@
-const connection = require('../../sql-connection');
+const pool = require('../../sql-connection');
 
 // Helper to convert callback to promise
 const queryAsync = (sql, params) => {
   return new Promise((resolve, reject) => {
-    connection.query(sql, params, (err, results) => {
+    pool.query(sql, params, (err, results) => {
       if (err) return reject(err);
       resolve(results);
     });
@@ -187,7 +187,7 @@ exports.getDashboardInsights = (req, res) => {
     WHERE created_on BETWEEN ? AND ?
   `;
 
-  connection.query(salesQuery, [fromDate, toDate], (err, sales) => {
+  pool.query(salesQuery, [fromDate, toDate], (err, sales) => {
     if (err) return res.status(500).json(err);
 
     /* ================= REVENUE TREND ================= */
@@ -201,7 +201,7 @@ exports.getDashboardInsights = (req, res) => {
       ORDER BY month
     `;
 
-    connection.query(revenueTrendQuery, [fromDate, toDate], (err, revenueTrend) => {
+    pool.query(revenueTrendQuery, [fromDate, toDate], (err, revenueTrend) => {
       if (err) return res.status(500).json(err);
 
       /* ================= JOB KPIs ================= */
@@ -216,7 +216,7 @@ exports.getDashboardInsights = (req, res) => {
         FROM jobs
       `;
 
-      connection.query(jobQuery, (err, jobs) => {
+      pool.query(jobQuery, (err, jobs) => {
         if (err) return res.status(500).json(err);
 
         /* ================= INVENTORY KPIs ================= */
@@ -226,7 +226,7 @@ exports.getDashboardInsights = (req, res) => {
           WHERE quantity < reorder_level
         `;
 
-        connection.query(inventoryQuery, (err, inventory) => {
+        pool.query(inventoryQuery, (err, inventory) => {
           if (err) return res.status(500).json(err);
 
           /* ================= DISPATCH KPIs ================= */
@@ -237,7 +237,7 @@ exports.getDashboardInsights = (req, res) => {
             FROM dispatch
           `;
 
-          connection.query(dispatchQuery, (err, dispatch) => {
+          pool.query(dispatchQuery, (err, dispatch) => {
             if (err) return res.status(500).json(err);
 
             /* ================= BUILD RESPONSE ================= */
@@ -304,7 +304,7 @@ exports.getAllDataReports = (req, res, next) => {
     });
   }
 
-  let query = `SELECT * FROM \`erp-madhawi-db\`.\`${reportType}\``;
+  let query = `SELECT * FROM \`erp_madhawi_db\`.\`${reportType}\``;
   const params = [];
   const conditions = [];
 
@@ -319,7 +319,7 @@ exports.getAllDataReports = (req, res, next) => {
     query += " WHERE " + conditions.join(" AND ");
   }
 
-  connection.query(query, params, (err, results) => {
+  pool.query(query, params, (err, results) => {
     if (err) {
       console.error("Report fetch error:", err);
       return res.status(500).json({

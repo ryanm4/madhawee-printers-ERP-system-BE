@@ -1,8 +1,8 @@
-const connection = require("../../sql-connection");
+const pool = require("../../sql-connection");
 
 exports.getAllCustomers = (req, res, next) => {
-  const query = `SELECT * FROM \`erp-madhawi-db\`.\`customers\`;`;
-  connection.query(query, (err, results) => {
+  const query = `SELECT * FROM \`erp_madhawi_db\`.\`customers\`;`;
+  pool.query(query, (err, results) => {
     // console.log(results);
     if (err) {
       console.error("Error fetching quotes:", err);
@@ -43,7 +43,7 @@ exports.getCustomerById = (req, res, next) => {
     WHERE customer_id = ?
   `;
 
-  connection.query(query, [customerId], (err, results) => {
+  pool.query(query, [customerId], (err, results) => {
     if (err) {
       console.error("Error fetching customer:", err);
       return next(err);
@@ -122,7 +122,7 @@ exports.createCustomer = (req, res, next) => {
     status,
   ];
 
-  connection.query(query, values, (err, results) => {
+  pool.query(query, values, (err, results) => {
     if (err) {
       console.error("Error creating customer:", err);
       return next(err);
@@ -138,6 +138,13 @@ exports.createCustomer = (req, res, next) => {
 
 exports.updateCustomer = (req, res, next) => {
   const customerId = req.params.customerId;
+
+  if (!customerId) {
+    return res.status(400).json({
+      status: "fail",
+      message: "Customer ID is required",
+    });
+  }
 
   const {
     company_name,
@@ -195,7 +202,7 @@ exports.updateCustomer = (req, res, next) => {
     customerId,
   ];
 
-  connection.query(query, values, (err, results) => {
+  pool.query(query, values, (err, results) => {
     if (err) {
       console.error("Error updating customer:", err);
       return next(err);
@@ -211,6 +218,7 @@ exports.updateCustomer = (req, res, next) => {
     res.status(200).json({
       status: "success",
       message: "Customer updated successfully",
+      updated_customer_id: customerId,
     });
   });
 };
@@ -218,27 +226,63 @@ exports.updateCustomer = (req, res, next) => {
 exports.deleteCustomer = (req, res, next) => {
   const customerId = req.params.customerId;
 
-  const query = `
-    DELETE FROM customers
-    WHERE customer_id = ?
-  `;
+  if (!customerId) {
+    return res.status(400).json({
+      status: "fail",
+      message: "Customer ID is required",
+    });
+  }
 
-  connection.query(query, [customerId], (err, results) => {
-    if (err) {
-      console.error("Error deleting customer:", err);
-      return next(err);
-    }
+  pool.getConnection((err, connection) => {
+    if (err) return next(err);
 
-    if (results.affectedRows === 0) {
-      return res.status(404).json({
-        status: "fail",
-        message: "Customer not found",
+    connection.beginTransaction((err) => {
+      if (err) {
+        connection.release();
+        return next(err);
+      }
+
+      // Example: delete quotes or orders related to the customer
+      const deleteQuotesQuery = `DELETE FROM quotations WHERE customer_id = ?`;
+      const deleteCustomerQuery = `DELETE FROM customers WHERE customer_id = ?`;
+
+      connection.query(deleteQuotesQuery, [customerId], (err) => {
+        if (err) {
+          return connection.rollback(() => {
+            connection.release();
+            next(err);
+          });
+        }
+
+        connection.query(deleteCustomerQuery, [customerId], (err, results) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              next(err);
+            });
+          }
+
+          if (results.affectedRows === 0) {
+            return connection.rollback(() => {
+              connection.release();
+              res.status(404).json({
+                status: "fail",
+                message: "Customer not found",
+              });
+            });
+          }
+
+          connection.commit((err) => {
+            connection.release();
+            if (err) return next(err);
+
+            res.status(200).json({
+              status: "success",
+              message: "Customer and related records deleted successfully",
+            });
+          });
+        });
       });
-    }
-
-    res.status(200).json({
-      status: "success",
-      message: "Customer deleted successfully",
     });
   });
 };

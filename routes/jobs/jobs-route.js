@@ -33,7 +33,7 @@ const jobsRouter = express.Router();
  *         description: Internal server error
  */
 jobsRouter.route("/po/:poId")
-    .get(jobsController.getJobsByPOId)
+    .get(jobsController.getJobsByPOId);
 
 /**
  * @swagger
@@ -161,7 +161,7 @@ jobsRouter.route("/po/:poId")
 */
 jobsRouter.route("/")
     .get(jobsController.getAllJobs)
-    .post(jobsController.createJob)
+    .post(jobsController.createJob);
 
 /**
  * @swagger

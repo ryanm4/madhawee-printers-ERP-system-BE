@@ -1,4 +1,4 @@
-const connection = require("../../sql-connection");
+const pool = require("../../sql-connection");
 
 exports.getAllDispatchNotes = (req, res, next) => {
   const query = `
@@ -43,20 +43,20 @@ exports.getAllDispatchNotes = (req, res, next) => {
       j.wastage,
       j.status AS job_status
 
-    FROM \`erp-madhawi-db\`.dispatch d
+    FROM \`erp_madhawi_db\`.dispatch d
 
     -- Job first
-    LEFT JOIN \`erp-madhawi-db\`.jobs j
+    LEFT JOIN \`erp_madhawi_db\`.jobs j
       ON d.job_id = j.job_id
 
     -- Customer (prefer job.customer_id, fallback to dispatch.customer_id)
-    LEFT JOIN \`erp-madhawi-db\`.customers c
+    LEFT JOIN \`erp_madhawi_db\`.customers c
       ON c.customer_id = COALESCE(j.customer_id, d.customer_id)
 
     ORDER BY d.created_on DESC
   `;
 
-  connection.query(query, (err, results) => {
+  pool.query(query, (err, results) => {
     if (err) {
       console.error("Error fetching dispatch notes:", err);
       return next(err);
@@ -84,7 +84,7 @@ exports.createDispatch = (req, res, next) => {
   } = req.body;
 
   const query = `
-    INSERT INTO \`erp-madhawi-db\`.dispatch (
+    INSERT INTO \`erp_madhawi_db\`.dispatch (
       customer_id,
       job_id,
       dispatch_note,
@@ -99,7 +99,7 @@ exports.createDispatch = (req, res, next) => {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
   `;
 
-  connection.query(
+  pool.query(
     query,
     [
       customer_id,
@@ -177,7 +177,7 @@ exports.getDispatchById = (req, res, next) => {
     WHERE d.dispatch_id = ?
   `;
 
-  connection.query(query, [dispatch_id], (err, results) => {
+  pool.query(query, [dispatch_id], (err, results) => {
     if (err) {
       console.error("Error fetching dispatch:", err);
       return next(err);
@@ -262,7 +262,7 @@ exports.updateDispatch = (req, res, next) => {
   } = req.body;
 
   const query = `
-    UPDATE \`erp-madhawi-db\`.dispatch SET
+    UPDATE \`erp_madhawi_db\`.dispatch SET
       customer_id = ?,
       job_id = ?,
       dispatch_note = ?,
@@ -277,7 +277,7 @@ exports.updateDispatch = (req, res, next) => {
     WHERE dispatch_id = ?
   `;
 
-  connection.query(
+  pool.query(
     query,
     [
       customer_id,
@@ -314,9 +314,9 @@ exports.updateDispatch = (req, res, next) => {
 exports.deleteDispatch = (req, res, next) => {
   const { dispatch_id } = req.params;
 
-  const query = `DELETE FROM \`erp-madhawi-db\`.dispatch WHERE dispatch_id = ?`;
+  const query = `DELETE FROM \`erp_madhawi_db\`.dispatch WHERE dispatch_id = ?`;
 
-  connection.query(query, [dispatch_id], (err, result) => {
+  pool.query(query, [dispatch_id], (err, result) => {
     if (err) return next(err);
 
     if (result.affectedRows === 0) {

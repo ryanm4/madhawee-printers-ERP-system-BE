@@ -1,4 +1,4 @@
-const connection = require("../../sql-connection");
+const pool = require("../../sql-connection");
 
 exports.getAllQuotes = (req, res, next) => {
   const query = `SELECT q.quote_id,q.customer_id,
@@ -8,12 +8,12 @@ exports.getAllQuotes = (req, res, next) => {
   q.currency, q.contact_person AS contact_person,
   q.notes, q.status, q.created_on, q.created_by,
   q.updated_on, q.updated_by
-  FROM \`erp-madhawi-db\`.\`quotations\`
-  q JOIN \`erp-madhawi-db\`.\`customers\` c
+  FROM \`erp_madhawi_db\`.\`quotations\`
+  q JOIN \`erp_madhawi_db\`.\`customers\` c
   ON q.customer_id = c.customer_id
   ORDER BY q.created_on DESC;`;
 
-  connection.query(query, (err, results) => {
+  pool.query(query, (err, results) => {
     // console.log(results);
     if (err) {
       console.error("Error fetching quotes:", err);
@@ -62,7 +62,7 @@ exports.getQuoteById = (req, res, next) => {
     WHERE q.quote_id = ?;
   `;
 
-  connection.query(query, [quoteId], (err, results) => {
+  pool.query(query, [quoteId], (err, results) => {
     if (err) {
       console.error("Error fetching quote by ID:", err);
       return next(err);
@@ -138,88 +138,103 @@ exports.createQuote = (req, res, next) => {
     items,
   } = req.body;
 
-  // START TRANSACTION
-  connection.beginTransaction((err) => {
+  /* ---------- GET CONNECTION FROM POOL ---------- */
+  pool.getConnection((err, connection) => {
     if (err) return next(err);
 
-    // 1️⃣ Insert into quotations table
-    const quoteQuery = `
-  INSERT INTO quotations (
-    customer_id, type_id, delivery_days, tax_type_id,
-    currency, sub_total, no_of_items, total_without_tax, net_total,
-    contact_person, notes, created_on, created_by, updated_on, updated_by, status
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NULL, ?, ?)
-`;
-
-    const quoteValues = [
-      customer_id,
-      type_id,
-      delivery_days,
-      tax_type_id,
-      currency,
-      sub_total,
-      no_of_items,
-      total_without_tax,
-      net_total,
-      contact_person,
-      notes,
-      created_by,
-      updated_by,
-      status,
-    ];
-
-    connection.query(quoteQuery, quoteValues, (err, result) => {
+    /* ---------- START TRANSACTION ---------- */
+    connection.beginTransaction((err) => {
       if (err) {
-        return connection.rollback(() => next(err));
+        connection.release();
+        return next(err);
       }
 
-      const quoteId = result.insertId;
-
-      // 2️⃣ Insert items into quote_items
-      if (!items || items.length === 0) {
-        // Commit only quotation if no items
-        return connection.commit((err) => {
-          if (err) return connection.rollback(() => next(err));
-
-          res.status(201).json({
-            status: "success",
-            message: "Quotation added without items.",
-          });
-        });
-      }
-
-      const itemQuery = `
-        INSERT INTO quote_items (
-          quote_id, item_category, item_description,
-          item_qty, item_unit_price, item_unit_discount, item_total_price
-        ) VALUES ?
+      /* ---------- INSERT QUOTATION ---------- */
+      const quoteQuery = `
+        INSERT INTO quotations (
+          customer_id, type_id, delivery_days, tax_type_id,
+          currency, sub_total, no_of_items, total_without_tax, net_total,
+          contact_person, notes, created_on, created_by, updated_on, updated_by, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NULL, ?, ?)
       `;
 
-      // Prepare item rows
-      const itemValues = items.map((item) => [
-        quoteId,
-        item.item_category,
-        item.item_description,
-        item.item_qty,
-        item.item_unit_price,
-        item.item_unit_discount,
-        item.item_total_price,
-      ]);
+      const quoteValues = [
+        customer_id,
+        type_id,
+        delivery_days,
+        tax_type_id,
+        currency,
+        sub_total,
+        no_of_items,
+        total_without_tax,
+        net_total,
+        contact_person,
+        notes,
+        created_by,
+        updated_by,
+        status,
+      ];
 
-      connection.query(itemQuery, [itemValues], (err, itemResult) => {
+      connection.query(quoteQuery, quoteValues, (err, result) => {
         if (err) {
-          return connection.rollback(() => next(err));
+          return connection.rollback(() => {
+            connection.release();
+            next(err);
+          });
         }
 
-        // FINAL COMMIT
-        connection.commit((err) => {
+        const quoteId = result.insertId;
+
+        /* ---------- NO ITEMS CASE ---------- */
+        if (!items || items.length === 0) {
+          return connection.commit((err) => {
+            connection.release();
+
+            if (err) return next(err);
+
+            res.status(201).json({
+              status: "success",
+              message: "Quotation added without items.",
+            });
+          });
+        }
+
+        /* ---------- INSERT ITEMS ---------- */
+        const itemQuery = `
+          INSERT INTO quote_items (
+            quote_id, item_category, item_description,
+            item_qty, item_unit_price, item_unit_discount, item_total_price
+          ) VALUES ?
+        `;
+
+        const itemValues = items.map((item) => [
+          quoteId,
+          item.item_category,
+          item.item_description,
+          item.item_qty,
+          item.item_unit_price,
+          item.item_unit_discount,
+          item.item_total_price,
+        ]);
+
+        connection.query(itemQuery, [itemValues], (err) => {
           if (err) {
-            return connection.rollback(() => next(err));
+            return connection.rollback(() => {
+              connection.release();
+              next(err);
+            });
           }
 
-          res.status(201).json({
-            status: "success",
-            message: "Quotation and items added successfully.",
+          /* ---------- COMMIT ---------- */
+          connection.commit((err) => {
+            connection.release();
+
+            if (err) return next(err);
+
+            res.status(201).json({
+              status: "success",
+              message: "Quotation and items added successfully.",
+            });
           });
         });
       });
@@ -247,97 +262,124 @@ exports.updateQuote = (req, res, next) => {
     items,
   } = req.body;
 
-  // START TRANSACTION
-  connection.beginTransaction((err) => {
+  /* ---------- GET CONNECTION FROM POOL ---------- */
+  pool.getConnection((err, connection) => {
     if (err) return next(err);
 
-    // 1️⃣ Update main quotation
-    const updateQuoteQuery = `
-      UPDATE quotations
-      SET 
-        customer_id = ?, 
-        type_id = ?, 
-        delivery_days = ?, 
-        tax_type_id = ?, 
-        currency = ?, 
-        sub_total = ?, 
-        no_of_items = ?, 
-        total_without_tax = ?, 
-        net_total = ?, 
-        contact_person = ?, 
-        notes = ?, 
-        updated_on = NOW(), 
-        updated_by = ?, 
-        status = ?
-      WHERE quote_id = ?
-    `;
+    /* ---------- START TRANSACTION ---------- */
+    connection.beginTransaction((err) => {
+      if (err) {
+        connection.release();
+        return next(err);
+      }
 
-    const updateQuoteValues = [
-      customer_id,
-      type_id,
-      delivery_days,
-      tax_type_id,
-      currency,
-      sub_total,
-      no_of_items,
-      total_without_tax,
-      net_total,
-      contact_person,
-      notes,
-      updated_by,
-      status,
-      quoteId,
-    ];
+      /* ---------- UPDATE QUOTATION ---------- */
+      const updateQuoteQuery = `
+        UPDATE quotations
+        SET 
+          customer_id = ?, 
+          type_id = ?, 
+          delivery_days = ?, 
+          tax_type_id = ?, 
+          currency = ?, 
+          sub_total = ?, 
+          no_of_items = ?, 
+          total_without_tax = ?, 
+          net_total = ?, 
+          contact_person = ?, 
+          notes = ?, 
+          updated_on = NOW(), 
+          updated_by = ?, 
+          status = ?
+        WHERE quote_id = ?
+      `;
 
-    connection.query(updateQuoteQuery, updateQuoteValues, (err, result) => {
-      if (err) return connection.rollback(() => next(err));
+      const updateQuoteValues = [
+        customer_id,
+        type_id,
+        delivery_days,
+        tax_type_id,
+        currency,
+        sub_total,
+        no_of_items,
+        total_without_tax,
+        net_total,
+        contact_person,
+        notes,
+        updated_by,
+        status,
+        quoteId,
+      ];
 
-      // 2️⃣ Delete existing items for this quote
-      const deleteItemsQuery = `DELETE FROM quote_items WHERE quote_id = ?`;
-
-      connection.query(deleteItemsQuery, [quoteId], (err, delResult) => {
-        if (err) return connection.rollback(() => next(err));
-
-        // 3️⃣ If no new items — finish the update
-        if (!items || items.length === 0) {
-          return connection.commit((err) => {
-            if (err) return connection.rollback(() => next(err));
-
-            res.status(200).json({
-              status: "success",
-              message: "Quotation updated (no items provided)",
-            });
+      connection.query(updateQuoteQuery, updateQuoteValues, (err) => {
+        if (err) {
+          return connection.rollback(() => {
+            connection.release();
+            next(err);
           });
         }
 
-        // 4️⃣ Insert the new items
-        const insertItemsQuery = `
-          INSERT INTO quote_items (
-            quote_id, item_category, item_description,
-            item_qty, item_unit_price, item_unit_discount, item_total_price
-          ) VALUES ?
-        `;
+        /* ---------- DELETE EXISTING ITEMS ---------- */
+        const deleteItemsQuery = `DELETE FROM quote_items WHERE quote_id = ?`;
 
-        const itemValues = items.map((item) => [
-          quoteId,
-          item.item_category,
-          item.item_description,
-          item.item_qty,
-          item.item_unit_price,
-          item.item_unit_discount,
-          item.item_total_price,
-        ]);
+        connection.query(deleteItemsQuery, [quoteId], (err) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              next(err);
+            });
+          }
 
-        connection.query(insertItemsQuery, [itemValues], (err, itemResult) => {
-          if (err) return connection.rollback(() => next(err));
+          /* ---------- NO ITEMS CASE ---------- */
+          if (!items || items.length === 0) {
+            return connection.commit((err) => {
+              connection.release();
 
-          // FINAL COMMIT
-          connection.commit((err) => {
-            if (err) return connection.rollback(() => next(err));
+              if (err) return next(err);
 
-            res.status(200).json({
-              status: "success",
-              message: "Quotation and items updated successfully",
+              res.status(200).json({
+                status: "success",
+                message: "Quotation updated (no items provided)",
+              });
+            });
+          }
+
+          /* ---------- INSERT ITEMS ---------- */
+          const insertItemsQuery = `
+            INSERT INTO quote_items (
+              quote_id, item_category, item_description,
+              item_qty, item_unit_price, item_unit_discount, item_total_price
+            ) VALUES ?
+          `;
+
+          const itemValues = items.map((item) => [
+            quoteId,
+            item.item_category,
+            item.item_description,
+            item.item_qty,
+            item.item_unit_price,
+            item.item_unit_discount,
+            item.item_total_price,
+          ]);
+
+          connection.query(insertItemsQuery, [itemValues], (err) => {
+            if (err) {
+              return connection.rollback(() => {
+                connection.release();
+                next(err);
+              });
+            }
+
+            /* ---------- COMMIT ---------- */
+            connection.commit((err) => {
+              connection.release();
+
+              if (err) return next(err);
+
+              res.status(200).json({
+                status: "success",
+                message: "Quotation and items updated successfully",
+              });
             });
           });
         });
@@ -349,40 +391,65 @@ exports.updateQuote = (req, res, next) => {
 exports.deleteQuote = (req, res, next) => {
   const quoteId = req.params.quoteId;
 
-  // Delete items first (child table), then delete quote (parent table)
-  const deleteItemsQuery = `
-    DELETE FROM quote_items WHERE quote_id = ?
-  `;
+  /* ---------- GET CONNECTION FROM POOL ---------- */
+  pool.getConnection((err, connection) => {
+    if (err) return next(err);
 
-  const deleteQuoteQuery = `
-    DELETE FROM quotations WHERE quote_id = ?
-  `;
-
-  // Step 1: Delete items
-  connection.query(deleteItemsQuery, [quoteId], (err) => {
-    if (err) {
-      console.error("Error deleting quote items:", err);
-      return next(err);
-    }
-
-    // Step 2: Delete quote
-    connection.query(deleteQuoteQuery, [quoteId], (err, results) => {
+    /* ---------- START TRANSACTION ---------- */
+    connection.beginTransaction((err) => {
       if (err) {
-        console.error("Error deleting quote:", err);
+        connection.release();
         return next(err);
       }
 
-      // If no rows deleted → quote does not exist
-      if (results.affectedRows === 0) {
-        return res.status(404).json({
-          status: "fail",
-          message: "Quote not found",
-        });
-      }
+      const deleteItemsQuery = `
+        DELETE FROM quote_items WHERE quote_id = ?
+      `;
 
-      res.status(204).json({
-        status: "success",
-        message: "Quote and related items deleted successfully",
+      const deleteQuoteQuery = `
+        DELETE FROM quotations WHERE quote_id = ?
+      `;
+
+      /* ---------- DELETE QUOTE ITEMS ---------- */
+      connection.query(deleteItemsQuery, [quoteId], (err) => {
+        if (err) {
+          return connection.rollback(() => {
+            connection.release();
+            next(err);
+          });
+        }
+
+        /* ---------- DELETE QUOTE ---------- */
+        connection.query(deleteQuoteQuery, [quoteId], (err, result) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              next(err);
+            });
+          }
+
+          if (result.affectedRows === 0) {
+            return connection.rollback(() => {
+              connection.release();
+              res.status(404).json({
+                status: "fail",
+                message: "Quote not found",
+              });
+            });
+          }
+
+          /* ---------- COMMIT ---------- */
+          connection.commit((err) => {
+            connection.release();
+
+            if (err) return next(err);
+
+            res.status(200).json({
+              status: "success",
+              message: "Quote and related items deleted successfully",
+            });
+          });
+        });
       });
     });
   });
@@ -400,7 +467,7 @@ exports.getQuotesByCustomerId = (req, res, next) => {
     ORDER BY created_on DESC
   `;
 
-  connection.query(quoteQuery, [customerId], (err, quotes) => {
+  pool.query(quoteQuery, [customerId], (err, quotes) => {
     if (err) {
       console.error("Error fetching quotations:", err);
       return next(err);
@@ -422,7 +489,7 @@ exports.getQuotesByCustomerId = (req, res, next) => {
       WHERE quote_id IN (?)
     `;
 
-    connection.query(itemQuery, [quoteIds], (err, items) => {
+    pool.query(itemQuery, [quoteIds], (err, items) => {
       if (err) {
         console.error("Error fetching quote items:", err);
         return next(err);
