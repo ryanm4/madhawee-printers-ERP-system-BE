@@ -40,9 +40,9 @@ exports.userRegistration = async (req, res, next) => {
 };
 
 exports.userLogin = (req, res, next) => {
-    const { email, password } = req.body;
-    const query = "SELECT * FROM users WHERE email = ?";
-    pool.query(query, [email], async (err, results) => {
+    const { name, password } = req.body;
+    const query = "SELECT * FROM users WHERE name = ?";
+    pool.query(query, [name], async (err, results) => {
         if (err) {
             console.error("Error during login:", err);
             return next(err);
@@ -50,7 +50,7 @@ exports.userLogin = (req, res, next) => {
         if (results.length === 0) {
             return res.status(401).json({
                 status: "fail",
-                message: "Invalid email or password",
+                message: "Invalid name or password",
             });
         }
         const user = results[0];
@@ -58,13 +58,13 @@ exports.userLogin = (req, res, next) => {
         if (!isPasswordValid) {
             return res.status(401).json({
                 status: "fail",
-                message: "Invalid email or password",
+                message: "Invalid name or password",
             });
         }
         const token = jwt.sign(
             {
                 user_id: user.user_id,
-                email: user.email,
+                name: user.name,
                 // role: user.role, // optional but useful
             },
             process.env.JWT_SECRET,
@@ -75,7 +75,7 @@ exports.userLogin = (req, res, next) => {
             token,
             user: {
                 user_id: user.user_id,
-                email: user.email,
+                // email: user.email,
                 name: user.name,
                 user_role: user.user_role,
             },
