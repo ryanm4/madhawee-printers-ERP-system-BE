@@ -323,7 +323,6 @@ exports.getPObyId = (req, res, next) => {
 };
 
 exports.createPurchaseOrder = (req, res, next) => {
-
   const {
     quote_id,
     customer_id,
