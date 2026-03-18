@@ -2,49 +2,50 @@ const pool = require("../../sql-connection");
 
 exports.getAllPOWithJobs = (req, res, next) => {
   const query = `
-    SELECT
-      po.po_id,
-      po.quote_id,
-      po.po_type_id,
-      po.batch_ref,
-      po.po_date,
-      po.delivery_date,
-      po.TC_E_PR_No,
-      po.status AS po_status,
+  SELECT
+    po.po_id,
+    po.quote_id,
+    po.po_type_id,
+    po.batch_ref,
+    po.po_date,
+    po.delivery_date,
+    po.TC_E_PR_No,
+    po.customer_po,   -- ✅ added
+    po.status AS po_status,
 
-      c.customer_id,
-      c.company_name AS customer_name,
-      c.email AS customer_email,
+    c.customer_id,
+    c.company_name AS customer_name,
+    c.email AS customer_email,
 
-      j.job_id,
-      j.job_open_date,
-      j.job_name,
-      j.product_type,
-      j.paper_type_id,
-      j.quantity,
-      j.coating,
-      j.packing_date,
-      j.expiry_date,
-      j.description,
-      j.artwork,
-      j.remarks,
-      j.status AS job_status,
-      j.completed_qty,
-      j.wastage
+    j.job_id,
+    j.job_open_date,
+    j.job_name,
+    j.product_type,
+    j.paper_type_id,
+    j.quantity,
+    j.coating,
+    j.packing_date,
+    j.expiry_date,
+    j.description,
+    j.artwork,
+    j.remarks,
+    j.status AS job_status,
+    j.completed_qty,
+    j.wastage
 
-    FROM \`erp_madhawi_db\`.purchase_orders po
+  FROM \`erp_madhawi_db\`.purchase_orders po
 
-    LEFT JOIN \`erp_madhawi_db\`.quotations q
-      ON q.quote_id = po.quote_id
+  LEFT JOIN \`erp_madhawi_db\`.quotations q
+    ON q.quote_id = po.quote_id
 
-    LEFT JOIN \`erp_madhawi_db\`.customers c
-      ON c.customer_id = po.customer_id
+  LEFT JOIN \`erp_madhawi_db\`.customers c
+    ON c.customer_id = po.customer_id
 
-    LEFT JOIN \`erp_madhawi_db\`.jobs j
-      ON j.po_id = po.po_id
+  LEFT JOIN \`erp_madhawi_db\`.jobs j
+    ON j.po_id = po.po_id
 
-    ORDER BY po.po_id DESC, j.job_id ASC
-  `;
+  ORDER BY po.po_id DESC, j.job_id ASC
+`;
 
   pool.query(query, (err, results) => {
     if (err) {
@@ -65,14 +66,15 @@ exports.getAllPOWithJobs = (req, res, next) => {
           po_date: row.po_date,
           delivery_date: row.delivery_date,
           TC_E_PR_No: row.TC_E_PR_No,
+          customer_po: row.customer_po, // ✅ added
           status: row.po_status,
 
           customer: row.customer_id
             ? {
-                customer_id: row.customer_id,
-                name: row.customer_name,
-                email: row.customer_email,
-              }
+              customer_id: row.customer_id,
+              name: row.customer_name,
+              email: row.customer_email,
+            }
             : null,
 
           jobs: [],
