@@ -212,48 +212,38 @@ exports.createJob = (req, res, next) => {
           );
         }
 
-        // 4️⃣ Insert Materials with inventory check
+        // 4️⃣ Insert Materials (allows negative inventory)
         function insertMaterials(materials, mIndex, callback) {
           if (mIndex >= materials.length) return callback();
 
           const m = materials[mIndex];
 
           connection.query(
-            `SELECT quantity FROM main_inventory WHERE item_id = ? FOR UPDATE`,
-            [m.item_id],
-            (err, invRows) => {
-              if (err || invRows.length === 0) return connection.rollback(() => { connection.release(); next(err || new Error("Inventory not found")); });
-              if (Number(invRows[0].quantity) < Number(m.quantity)) return connection.rollback(() => { connection.release(); next(new Error(`Insufficient stock for item ${m.item_id}`)); });
+            `INSERT INTO job_materials
+             (job_id, item_id, material_type, material_name, material_description, size, quantity, status, remarks)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              jobId,
+              m.item_id,
+              m.material_type,
+              m.material_name,
+              m.material_description || null,
+              m.size || null,
+              m.quantity,
+              m.status,
+              m.remarks
+            ],
+            (err) => {
+              if (err) return connection.rollback(() => { connection.release(); next(err); });
 
-              // Insert material
+              // Deduct inventory (allows going negative)
               connection.query(
-                `INSERT INTO job_materials
-                 (job_id, item_id, material_type, material_name, material_description, size, quantity, status, remarks)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
-                  jobId,
-                  m.item_id,
-                  m.material_type,
-                  m.material_name,
-                  m.material_description || null,
-                  m.size || null,
-                  m.quantity,
-                  m.status,
-                  m.remarks
-                ],
+                `UPDATE main_inventory SET quantity = quantity - ? WHERE item_id = ?`,
+                [Number(m.quantity), m.item_id],
                 (err) => {
                   if (err) return connection.rollback(() => { connection.release(); next(err); });
 
-                  // Deduct inventory
-                  connection.query(
-                    `UPDATE main_inventory SET quantity = quantity - ? WHERE item_id = ?`,
-                    [Number(m.quantity), m.item_id],
-                    (err) => {
-                      if (err) return connection.rollback(() => { connection.release(); next(err); });
-
-                      insertMaterials(materials, mIndex + 1, callback);
-                    }
-                  );
+                  insertMaterials(materials, mIndex + 1, callback);
                 }
               );
             }
