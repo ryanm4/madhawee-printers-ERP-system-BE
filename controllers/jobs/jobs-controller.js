@@ -250,7 +250,7 @@ exports.createJob = (req, res, next) => {
           );
         }
 
-        // 4️⃣ Insert Materials (allows negative inventory)
+        // 4️⃣ Insert Materials (skip inventory update)
         function insertMaterials(materials, mIndex, callback) {
           if (mIndex >= materials.length) return callback();
 
@@ -278,20 +278,8 @@ exports.createJob = (req, res, next) => {
                   next(err);
                 });
 
-              // Deduct inventory (allows going negative)
-              connection.query(
-                `UPDATE main_inventory SET quantity = quantity - ? WHERE item_id = ?`,
-                [Number(m.quantity), m.item_id],
-                (err) => {
-                  if (err)
-                    return connection.rollback(() => {
-                      connection.release();
-                      next(err);
-                    });
-
-                  insertMaterials(materials, mIndex + 1, callback);
-                }
-              );
+              // ✅ Skip inventory deduction
+              insertMaterials(materials, mIndex + 1, callback);
             }
           );
         }
@@ -317,7 +305,7 @@ exports.createJob = (req, res, next) => {
           );
         }
 
-        // 6️⃣ Commit
+        // 6️⃣ Commit Transaction
         function commitTransaction() {
           connection.commit((err) => {
             connection.release();
@@ -372,78 +360,44 @@ exports.updateJob = (req, res, next) => {
         return next(err);
       }
 
-      // 1️⃣ Restore inventory from old materials
+      // 1️⃣ Update job table
       connection.query(
-        `SELECT item_id, quantity FROM job_materials WHERE job_id=?`,
-        [jobId],
-        (err, oldMaterials) => {
+        `UPDATE jobs SET
+          job_name=?, product_type=?, paper_type_id=?, quantity=?, coating=?,
+          packing_date=?, expiry_date=?, description=?, artwork=?,
+          remarks=?, status=?, completed_qty=?, job_item=?, wastage=?,
+          updated_on=?, updated_by=?
+         WHERE job_id=?`,
+        [
+          job_name,
+          product_type,
+          paper_type_id,
+          quantity,
+          coating,
+          packing_date,
+          expiry_date,
+          description,
+          artwork,
+          remarks,
+          status,
+          completed_qty,
+          job_item,
+          wastage,
+          updatedOn,
+          updated_by,
+          jobId,
+        ],
+        (err) => {
           if (err)
             return connection.rollback(() => {
               connection.release();
               next(err);
             });
-
-          const restoreInventory = (i) => {
-            if (i >= oldMaterials.length) return updateJobTable();
-
-            const m = oldMaterials[i];
-            connection.query(
-              `UPDATE main_inventory SET quantity = quantity + ? WHERE item_id=?`,
-              [Number(m.quantity), m.item_id],
-              (err) => {
-                if (err)
-                  return connection.rollback(() => {
-                    connection.release();
-                    next(err);
-                  });
-                restoreInventory(i + 1);
-              }
-            );
-          };
-          restoreInventory(0);
+          deleteOldData();
         }
       );
 
-      // 2️⃣ Update job table
-      function updateJobTable() {
-        connection.query(
-          `UPDATE jobs SET
-            job_name=?, product_type=?, paper_type_id=?, quantity=?, coating=?,
-            packing_date=?, expiry_date=?, description=?, artwork=?,
-            remarks=?, status=?, completed_qty=?, job_item=?, wastage=?,
-            updated_on=?, updated_by=?
-           WHERE job_id=?`,
-          [
-            job_name,
-            product_type,
-            paper_type_id,
-            quantity,
-            coating,
-            packing_date,
-            expiry_date,
-            description,
-            artwork,
-            remarks,
-            status,
-            completed_qty,
-            job_item,
-            wastage,
-            updatedOn,
-            updated_by,
-            jobId,
-          ],
-          (err) => {
-            if (err)
-              return connection.rollback(() => {
-                connection.release();
-                next(err);
-              });
-            deleteOldData();
-          }
-        );
-      }
-
-      // 3️⃣ Delete old materials + paper coating
+      // 2️⃣ Delete old materials + paper coating
       function deleteOldData() {
         connection.query(
           `DELETE FROM job_materials WHERE job_id=?`,
@@ -464,7 +418,6 @@ exports.updateJob = (req, res, next) => {
                     connection.release();
                     next(err);
                   });
-
                 insertPaperCoating(0);
               }
             );
@@ -472,9 +425,9 @@ exports.updateJob = (req, res, next) => {
         );
       }
 
-      // 4️⃣ Insert new paper coating + materials
+      // 3️⃣ Insert new paper coating + materials
       function insertPaperCoating(pcIndex) {
-        if (pcIndex >= paperCoating.length) return updateInks(0);
+        if (pcIndex >= paperCoating.length) return insertInks(0);
 
         const pc = paperCoating[pcIndex];
 
@@ -489,76 +442,47 @@ exports.updateJob = (req, res, next) => {
               });
 
             const materials = pc.materials || [];
-            insertMaterials(materials, 0, () =>
-              insertPaperCoating(pcIndex + 1)
-            );
+            insertMaterials(materials, 0, () => insertPaperCoating(pcIndex + 1));
           }
         );
       }
 
-      // Insert materials with inventory check
+      // 4️⃣ Insert materials (skip inventory)
       function insertMaterials(materials, mIndex, callback) {
         if (mIndex >= materials.length) return callback();
 
         const m = materials[mIndex];
 
         connection.query(
-          `SELECT quantity FROM main_inventory WHERE item_id=? FOR UPDATE`,
-          [m.item_id],
-          (err, invRows) => {
-            if (err || invRows.length === 0)
+          `INSERT INTO job_materials
+           (job_id, item_id, material_type, material_name, material_description, size, quantity, status, remarks)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            jobId,
+            m.item_id,
+            m.material_type,
+            m.material_name,
+            m.material_description || null,
+            m.size || null,
+            m.quantity,
+            m.status,
+            m.remarks,
+          ],
+          (err) => {
+            if (err)
               return connection.rollback(() => {
                 connection.release();
-                next(err || new Error("Inventory not found"));
-              });
-            if (Number(invRows[0].quantity) < Number(m.quantity))
-              return connection.rollback(() => {
-                connection.release();
-                next(new Error(`Insufficient stock for item ${m.item_id}`));
+                next(err);
               });
 
-            connection.query(
-              `INSERT INTO job_materials (job_id, item_id, material_type, material_name, material_description, size, quantity, status, remarks)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                jobId,
-                m.item_id,
-                m.material_type,
-                m.material_name,
-                m.material_description || null,
-                m.size || null,
-                m.quantity,
-                m.status,
-                m.remarks,
-              ],
-              (err) => {
-                if (err)
-                  return connection.rollback(() => {
-                    connection.release();
-                    next(err);
-                  });
-
-                // Deduct inventory
-                connection.query(
-                  `UPDATE main_inventory SET quantity=quantity-? WHERE item_id=?`,
-                  [Number(m.quantity), m.item_id],
-                  (err) => {
-                    if (err)
-                      return connection.rollback(() => {
-                        connection.release();
-                        next(err);
-                      });
-                    insertMaterials(materials, mIndex + 1, callback);
-                  }
-                );
-              }
-            );
+            // ✅ Skip inventory update
+            insertMaterials(materials, mIndex + 1, callback);
           }
         );
       }
 
       // 5️⃣ Update inks
-      function updateInks(iIndex) {
+      function insertInks(iIndex) {
         if (iIndex === 0) {
           connection.query(
             `DELETE FROM job_ink_data WHERE job_id=?`,
@@ -569,13 +493,13 @@ exports.updateJob = (req, res, next) => {
                   connection.release();
                   next(err);
                 });
-              insertInks(0);
+              insertInkItems(0);
             }
           );
         }
       }
 
-      function insertInks(iIndex) {
+      function insertInkItems(iIndex) {
         if (iIndex >= inks.length) return commitTransaction();
 
         const i = inks[iIndex];
@@ -588,12 +512,12 @@ exports.updateJob = (req, res, next) => {
                 connection.release();
                 next(err);
               });
-            insertInks(iIndex + 1);
+            insertInkItems(iIndex + 1);
           }
         );
       }
 
-      // 6️⃣ Commit
+      // 6️⃣ Commit transaction
       function commitTransaction() {
         connection.commit((err) => {
           connection.release();
