@@ -267,5 +267,27 @@ CREATE TABLE
     `quantity` INT NULL,
     `rate` DECIMAL(10, 2) NULL,
     `amount` DECIMAL(10, 2) NULL,
+    `created_on` DATETIME NULL AFTER `collector_name`,
+    `created_by` VARCHAR(45) NULL AFTER `created_on`,
+    `updated_on` DATETIME NULL AFTER `created_by`,
+    `updated_by` VARCHAR(45) NULL AFTER `updated_on`,
+    PRIMARY KEY (`id`)
+  );
+
+CREATE TABLE
+  `erp_madhawi_db`.`issue-notes` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `date` DATETIME NULL,
+    `remarks` VARCHAR(45) NULL,
+    `collector_name` VARCHAR(45) NULL,
+    PRIMARY KEY (`id`)
+  );
+
+CREATE TABLE
+  `erp_madhawi_db`.`issue_note-items` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `issue_note_id` INT NULL,
+    `item_name` VARCHAR(45) NULL,
+    `quantity` DECIMAL(10, 2) NULL,
     PRIMARY KEY (`id`)
   );
