@@ -1,5 +1,8 @@
 const pool = require("../../sql-connection");
 
+/* =========================================================
+   GET ALL POs WITH JOBS
+========================================================= */
 exports.getAllPOWithJobs = (req, res, next) => {
   const query = `
   SELECT
@@ -10,7 +13,8 @@ exports.getAllPOWithJobs = (req, res, next) => {
     po.po_date,
     po.delivery_date,
     po.TC_E_PR_No,
-    po.customer_po,   -- ✅ added
+    po.customer_po,
+    po.sales_ref, -- ✅ NEW
     po.status AS po_status,
 
     c.customer_id,
@@ -34,15 +38,9 @@ exports.getAllPOWithJobs = (req, res, next) => {
     j.wastage
 
   FROM \`erp_madhawi_db\`.purchase_orders po
-
-  LEFT JOIN \`erp_madhawi_db\`.quotations q
-    ON q.quote_id = po.quote_id
-
-  LEFT JOIN \`erp_madhawi_db\`.customers c
-    ON c.customer_id = po.customer_id
-
-  LEFT JOIN \`erp_madhawi_db\`.jobs j
-    ON j.po_id = po.po_id
+  LEFT JOIN \`erp_madhawi_db\`.quotations q ON q.quote_id = po.quote_id
+  LEFT JOIN \`erp_madhawi_db\`.customers c ON c.customer_id = po.customer_id
+  LEFT JOIN \`erp_madhawi_db\`.jobs j ON j.po_id = po.po_id
 
   ORDER BY po.po_id DESC, j.job_id ASC
 `;
@@ -56,7 +54,6 @@ exports.getAllPOWithJobs = (req, res, next) => {
     const poMap = {};
 
     results.forEach((row) => {
-      // Initialize PO object once
       if (!poMap[row.po_id]) {
         poMap[row.po_id] = {
           po_id: row.po_id,
@@ -66,22 +63,22 @@ exports.getAllPOWithJobs = (req, res, next) => {
           po_date: row.po_date,
           delivery_date: row.delivery_date,
           TC_E_PR_No: row.TC_E_PR_No,
-          customer_po: row.customer_po, // ✅ added
+          customer_po: row.customer_po,
+          sales_ref: row.sales_ref, // ✅ NEW
           status: row.po_status,
 
           customer: row.customer_id
             ? {
-              customer_id: row.customer_id,
-              name: row.customer_name,
-              email: row.customer_email,
-            }
+                customer_id: row.customer_id,
+                name: row.customer_name,
+                email: row.customer_email,
+              }
             : null,
 
           jobs: [],
         };
       }
 
-      // Push job only if job exists
       if (row.job_id) {
         poMap[row.po_id].jobs.push({
           job_id: row.job_id,
@@ -111,12 +108,14 @@ exports.getAllPOWithJobs = (req, res, next) => {
   });
 };
 
+/* =========================================================
+   GET PO BY ID
+========================================================= */
 exports.getPObyId = (req, res, next) => {
   const poId = req.params.poId;
 
   const query = `
     SELECT 
-      /* ---------- Purchase Order ---------- */
       p.po_id,
       p.quote_id,
       p.po_type_id,
@@ -124,6 +123,7 @@ exports.getPObyId = (req, res, next) => {
       p.po_date,
       p.delivery_date,
       p.TC_E_PR_No,
+      p.sales_ref, -- ✅ NEW
       p.approved_on,
       p.approved_by,
       p.created_on,
@@ -133,7 +133,6 @@ exports.getPObyId = (req, res, next) => {
       p.status AS po_status,
       p.customer_po,
 
-      /* ---------- Customer ---------- */
       c.company_name AS customer_name,
       c.customer_type AS customer_type,
       c.address AS customer_address,
@@ -141,7 +140,6 @@ exports.getPObyId = (req, res, next) => {
       c.email AS customer_email,
       c.customer_id AS customer_id,
 
-      /* ---------- Quotation Items ---------- */
       qi.item_id,
       qi.item_category,
       qi.item_description,
@@ -150,7 +148,6 @@ exports.getPObyId = (req, res, next) => {
       qi.item_unit_discount,
       qi.item_total_price,
 
-      /* ---------- PO Items ---------- */
       pid.po_item_id,
       pid.item_code,
       pid.description AS po_item_description,
@@ -158,7 +155,6 @@ exports.getPObyId = (req, res, next) => {
       pid.uom,
       pid.price,
 
-      /* ---------- Jobs ---------- */
       j.job_id,
       j.job_open_date,
       j.job_item,
@@ -174,7 +170,6 @@ exports.getPObyId = (req, res, next) => {
       j.remarks,
       j.status AS job_status,
 
-      /* ---------- Job Materials ---------- */
       jm.job_material_id,
       jm.material_type,
       jm.material_name,
@@ -194,19 +189,11 @@ exports.getPObyId = (req, res, next) => {
   `;
 
   pool.query(query, [poId], (err, results) => {
-    if (err) {
-      console.error("Error fetching PO:", err);
-      return next(err);
-    }
-
+    if (err) return next(err);
     if (!results.length) {
-      return res.status(404).json({
-        status: "error",
-        message: "Purchase order not found",
-      });
+      return res.status(404).json({ status: "error", message: "Purchase order not found" });
     }
 
-    /* ---------- BASE PO OBJECT ---------- */
     const po = {
       po_id: results[0].po_id,
       quote_id: results[0].quote_id,
@@ -215,6 +202,7 @@ exports.getPObyId = (req, res, next) => {
       po_date: results[0].po_date,
       delivery_date: results[0].delivery_date,
       TC_E_PR_No: results[0].TC_E_PR_No,
+      sales_ref: results[0].sales_ref, // ✅ NEW
       approved_on: results[0].approved_on,
       approved_by: results[0].approved_by,
       created_on: results[0].created_on,
@@ -237,16 +225,13 @@ exports.getPObyId = (req, res, next) => {
       jobs: [],
     };
 
-    /* ---------- MAPS FOR DEDUP ---------- */
     const quoteItemMap = {};
     const poItemMap = {};
     const jobMap = {};
 
     results.forEach((r) => {
-      /* ---------- Quotation Items ---------- */
       if (r.item_id && !quoteItemMap[r.item_id]) {
         quoteItemMap[r.item_id] = true;
-
         po.quotation_items.push({
           item_id: r.item_id,
           item_category: r.item_category,
@@ -258,10 +243,8 @@ exports.getPObyId = (req, res, next) => {
         });
       }
 
-      /* ---------- PO Items ---------- */
       if (r.po_item_id && !poItemMap[r.po_item_id]) {
         poItemMap[r.po_item_id] = true;
-
         po.po_items.push({
           po_item_id: r.po_item_id,
           item_code: r.item_code,
@@ -272,7 +255,6 @@ exports.getPObyId = (req, res, next) => {
         });
       }
 
-      /* ---------- Jobs ---------- */
       if (!r.job_id) return;
 
       if (!jobMap[r.job_id]) {
@@ -296,7 +278,6 @@ exports.getPObyId = (req, res, next) => {
         po.jobs.push(jobMap[r.job_id]);
       }
 
-      /* ---------- Job Materials ---------- */
       if (r.job_material_id) {
         const type = r.material_type || "Unknown";
 
@@ -317,13 +298,13 @@ exports.getPObyId = (req, res, next) => {
       }
     });
 
-    return res.status(200).json({
-      status: "success",
-      data: po,
-    });
+    res.status(200).json({ status: "success", data: po });
   });
 };
 
+/* =========================================================
+   CREATE PURCHASE ORDER
+========================================================= */
 exports.createPurchaseOrder = (req, res, next) => {
   const {
     quote_id,
@@ -339,17 +320,14 @@ exports.createPurchaseOrder = (req, res, next) => {
     updated_by,
     status,
     customer_po,
+    sales_ref, // ✅ NEW
     po_items = [],
   } = req.body;
 
-  /* GET CONNECTION FROM POOL */
   pool.getConnection((err, conn) => {
-
     if (err) return next(err);
 
-    /* START TRANSACTION */
     conn.beginTransaction((err) => {
-
       if (err) {
         conn.release();
         return next(err);
@@ -371,8 +349,9 @@ exports.createPurchaseOrder = (req, res, next) => {
           updated_on,
           updated_by,
           status,
-          customer_po
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?)
+          customer_po,
+          sales_ref
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?, ?)
       `;
 
       const poValues = [
@@ -389,10 +368,10 @@ exports.createPurchaseOrder = (req, res, next) => {
         updated_by,
         status,
         customer_po,
+        sales_ref, // ✅ NEW
       ];
 
       conn.query(poQuery, poValues, (err, result) => {
-
         if (err) {
           return conn.rollback(() => {
             conn.release();
@@ -402,11 +381,9 @@ exports.createPurchaseOrder = (req, res, next) => {
 
         const generatedPoId = result.insertId;
 
-        if (!Array.isArray(po_items) || po_items.length === 0) {
+        if (!po_items.length) {
           return conn.commit((err) => {
-
             conn.release();
-
             if (err) return next(err);
 
             res.status(201).json({
@@ -414,15 +391,8 @@ exports.createPurchaseOrder = (req, res, next) => {
               message: "Purchase Order created successfully",
               po_id: generatedPoId,
             });
-
           });
         }
-
-        const itemQuery = `
-          INSERT INTO po_items_details
-          (po_id, item_code, description, quantity, uom, price)
-          VALUES ?
-        `;
 
         const itemValues = po_items.map((item) => [
           generatedPoId,
@@ -433,41 +403,37 @@ exports.createPurchaseOrder = (req, res, next) => {
           item.price,
         ]);
 
-        conn.query(itemQuery, [itemValues], (err) => {
-
-          if (err) {
-            return conn.rollback(() => {
-              conn.release();
-              next(err);
-            });
-          }
-
-          conn.commit((err) => {
-
-            conn.release();
-
+        conn.query(
+          `INSERT INTO po_items_details (po_id, item_code, description, quantity, uom, price) VALUES ?`,
+          [itemValues],
+          (err) => {
             if (err) {
-              return conn.rollback(() => next(err));
+              return conn.rollback(() => {
+                conn.release();
+                next(err);
+              });
             }
 
-            res.status(201).json({
-              status: "success",
-              message: "Purchase Order and items created successfully",
-              po_id: generatedPoId,
+            conn.commit((err) => {
+              conn.release();
+              if (err) return next(err);
+
+              res.status(201).json({
+                status: "success",
+                message: "Purchase Order and items created successfully",
+                po_id: generatedPoId,
+              });
             });
-
-          });
-
-        });
-
+          }
+        );
       });
-
     });
-
   });
-
 };
 
+/* =========================================================
+   UPDATE PURCHASE ORDER
+========================================================= */
 exports.updatePurchaseOrder = (req, res, next) => {
   const poId = req.params.poId;
 
@@ -484,15 +450,13 @@ exports.updatePurchaseOrder = (req, res, next) => {
     updated_by,
     status,
     customer_po,
+    sales_ref, // ✅ NEW
     po_items = [],
   } = req.body;
 
-  const toMysqlDatetime = (dateString) => {
-    if (!dateString) return null;
-    return new Date(dateString).toISOString().slice(0, 19).replace("T", " ");
-  };
+  const toMysqlDatetime = (d) =>
+    d ? new Date(d).toISOString().slice(0, 19).replace("T", " ") : null;
 
-  /* ---------- GET CONNECTION FROM POOL ---------- */
   pool.getConnection((err, connection) => {
     if (err) return next(err);
 
@@ -502,7 +466,6 @@ exports.updatePurchaseOrder = (req, res, next) => {
         return next(err);
       }
 
-      /* ---------- UPDATE PURCHASE ORDER ---------- */
       const poQuery = `
         UPDATE purchase_orders
         SET
@@ -518,7 +481,8 @@ exports.updatePurchaseOrder = (req, res, next) => {
           updated_on = NOW(),
           updated_by = ?,
           status = ?,
-          customer_po = ?
+          customer_po = ?,
+          sales_ref = ?
         WHERE po_id = ?
       `;
 
@@ -535,6 +499,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
         updated_by,
         status,
         customer_po,
+        sales_ref,
         poId,
       ];
 
@@ -546,17 +511,6 @@ exports.updatePurchaseOrder = (req, res, next) => {
           });
         }
 
-        if (result.affectedRows === 0) {
-          return connection.rollback(() => {
-            connection.release();
-            res.status(404).json({
-              status: "fail",
-              message: "Purchase order not found",
-            });
-          });
-        }
-
-        /* ---------- DELETE OLD ITEMS ---------- */
         connection.query(
           `DELETE FROM po_items_details WHERE po_id = ?`,
           [poId],
@@ -580,13 +534,6 @@ exports.updatePurchaseOrder = (req, res, next) => {
               });
             }
 
-            /* ---------- INSERT NEW ITEMS ---------- */
-            const insertItemsQuery = `
-              INSERT INTO po_items_details
-              (po_id, item_code, description, quantity, uom, price)
-              VALUES ?
-            `;
-
             const itemValues = po_items.map((item) => [
               poId,
               item.item_code,
@@ -596,25 +543,28 @@ exports.updatePurchaseOrder = (req, res, next) => {
               item.price,
             ]);
 
-            connection.query(insertItemsQuery, [itemValues], (err) => {
-              if (err) {
-                return connection.rollback(() => {
+            connection.query(
+              `INSERT INTO po_items_details (po_id, item_code, description, quantity, uom, price) VALUES ?`,
+              [itemValues],
+              (err) => {
+                if (err) {
+                  return connection.rollback(() => {
+                    connection.release();
+                    next(err);
+                  });
+                }
+
+                connection.commit((err) => {
                   connection.release();
-                  next(err);
+                  if (err) return next(err);
+
+                  res.status(200).json({
+                    status: "success",
+                    message: "Purchase order updated successfully",
+                  });
                 });
               }
-
-              /* ---------- COMMIT ---------- */
-              connection.commit((err) => {
-                connection.release();
-                if (err) return next(err);
-
-                res.status(200).json({
-                  status: "success",
-                  message: "Purchase order and items updated successfully",
-                });
-              });
-            });
+            );
           }
         );
       });
