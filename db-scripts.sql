@@ -53,8 +53,7 @@ CREATE TABLE
     `status` VARCHAR(45) NULL,
     `customer_po` VARCHAR(45) NULL,
     `po_items` VARCHAR(45) NULL,
-    `sales_ref` VARCHAR(45) NULL
-    PRIMARY KEY (`po_id`)
+    `sales_ref` VARCHAR(45) NULL PRIMARY KEY (`po_id`)
   );
 
 CREATE TABLE
@@ -238,5 +237,35 @@ CREATE TABLE
     `quantity` VARCHAR(45) NULL,
     `status` VARCHAR(45) NULL,
     `remarks` VARCHAR(45) NULL,
+    PRIMARY KEY (`id`)
+  );
+
+CREATE TABLE
+  `erp_madhawi_db`.`goods_receive_notes` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `releated_po` VARCHAR(45) NULL,
+    `received_date` DATETIME NULL,
+    `supplier_name` VARCHAR(45) NULL,
+    `stock_location` VARCHAR(45) NULL,
+    `payee_name` VARCHAR(45) NULL,
+    `payment_method` VARCHAR(45) NULL,
+    `currency` VARCHAR(45) NULL,
+    `supplier_invoice_no` VARCHAR(45) NULL,
+    `remarks` VARCHAR(45) NULL,
+    `created_on` DATETIME NULL,
+    `created_by` VARCHAR(45) NULL,
+    `updated_on` DATETIME NULL,
+    `updated_by` VARCHAR(45) NULL,
+    PRIMARY KEY (`id`)
+  );
+
+CREATE TABLE
+  `erp_madhawi_db`.`grn_items` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `grn_no` INT NOT NULL,
+    `item_name` VARCHAR(45) NULL,
+    `quantity` INT NULL,
+    `rate` DECIMAL(10, 2) NULL,
+    `amount` DECIMAL(10, 2) NULL,
     PRIMARY KEY (`id`)
   );
