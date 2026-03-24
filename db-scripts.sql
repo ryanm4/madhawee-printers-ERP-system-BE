@@ -53,6 +53,7 @@ CREATE TABLE
     `status` VARCHAR(45) NULL,
     `customer_po` VARCHAR(45) NULL,
     `po_items` VARCHAR(45) NULL,
+    `sales_ref` VARCHAR(45) NULL
     PRIMARY KEY (`po_id`)
   );
 
