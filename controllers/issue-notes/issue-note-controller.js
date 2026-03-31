@@ -37,7 +37,6 @@ exports.getAllIssueNotesWithItems = (req, res) => {
           items: []
         });
       }
-
       if (row.item_id) {
         notesMap.get(noteId).items.push({
           id: row.item_id,
