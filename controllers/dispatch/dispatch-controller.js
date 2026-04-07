@@ -30,6 +30,7 @@ exports.getAllDispatchNotes = (req, res, next) => {
 
       -- Job
       j.job_id,
+      j.job_number,
       j.po_id,
       j.job_name,
       j.job_open_date,
