@@ -14,7 +14,8 @@ exports.getAllPOWithJobs = (req, res, next) => {
     po.delivery_date,
     po.TC_E_PR_No,
     po.customer_po,
-    po.sales_ref, -- ✅ NEW
+    po.sales_ref, 
+    po.currency,
     po.status AS po_status,
 
     c.customer_id,
@@ -64,7 +65,8 @@ exports.getAllPOWithJobs = (req, res, next) => {
           delivery_date: row.delivery_date,
           TC_E_PR_No: row.TC_E_PR_No,
           customer_po: row.customer_po,
-          sales_ref: row.sales_ref, // ✅ NEW
+          sales_ref: row.sales_ref,
+          currency: row.currency,
           status: row.po_status,
 
           customer: row.customer_id
@@ -123,7 +125,8 @@ exports.getPObyId = (req, res, next) => {
       p.po_date,
       p.delivery_date,
       p.TC_E_PR_No,
-      p.sales_ref, -- ✅ NEW
+      p.sales_ref,
+      p.currency,
       p.approved_on,
       p.approved_by,
       p.created_on,
@@ -202,7 +205,8 @@ exports.getPObyId = (req, res, next) => {
       po_date: results[0].po_date,
       delivery_date: results[0].delivery_date,
       TC_E_PR_No: results[0].TC_E_PR_No,
-      sales_ref: results[0].sales_ref, // ✅ NEW
+      sales_ref: results[0].sales_ref, 
+      currency: results[0].currency,
       approved_on: results[0].approved_on,
       approved_by: results[0].approved_by,
       created_on: results[0].created_on,
@@ -320,7 +324,8 @@ exports.createPurchaseOrder = (req, res, next) => {
     updated_by,
     status,
     customer_po,
-    sales_ref, // ✅ NEW
+    sales_ref, 
+    currency,
     po_items = [],
   } = req.body;
 
@@ -350,8 +355,9 @@ exports.createPurchaseOrder = (req, res, next) => {
           updated_by,
           status,
           customer_po,
-          sales_ref
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?, ?)
+          sales_ref,
+          currency
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?, ?, ?)
       `;
 
       const poValues = [
@@ -368,7 +374,8 @@ exports.createPurchaseOrder = (req, res, next) => {
         updated_by,
         status,
         customer_po,
-        sales_ref, // ✅ NEW
+        sales_ref,  
+        currency,
       ];
 
       conn.query(poQuery, poValues, (err, result) => {
@@ -450,7 +457,8 @@ exports.updatePurchaseOrder = (req, res, next) => {
     updated_by,
     status,
     customer_po,
-    sales_ref, // ✅ NEW
+    sales_ref,
+    currency, 
     po_items = [],
   } = req.body;
 
@@ -483,6 +491,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
           status = ?,
           customer_po = ?,
           sales_ref = ?
+          currency = ?
         WHERE po_id = ?
       `;
 
@@ -500,6 +509,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
         status,
         customer_po,
         sales_ref,
+        currency,
         poId,
       ];
 
