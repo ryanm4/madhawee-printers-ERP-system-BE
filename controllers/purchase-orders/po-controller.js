@@ -36,7 +36,8 @@ exports.getAllPOWithJobs = (req, res, next) => {
     j.remarks,
     j.status AS job_status,
     j.completed_qty,
-    j.wastage
+    j.wastage,
+    j.job_number
 
   FROM \`erp_madhawi_db\`.purchase_orders po
   LEFT JOIN \`erp_madhawi_db\`.quotations q ON q.quote_id = po.quote_id
@@ -98,6 +99,7 @@ exports.getAllPOWithJobs = (req, res, next) => {
           status: row.job_status,
           completed_qty: row.completed_qty,
           wastage: row.wastage,
+          job_number: row.job_number,
         });
       }
     });
@@ -171,6 +173,7 @@ exports.getPObyId = (req, res, next) => {
       j.description,
       j.artwork,
       j.remarks,
+      j.job_number,
       j.status AS job_status,
 
       jm.job_material_id,
@@ -277,6 +280,7 @@ exports.getPObyId = (req, res, next) => {
           artwork: r.artwork,
           remarks: r.remarks,
           status: r.job_status,
+          job_number: r.job_number,
           materials: {},
         };
         po.jobs.push(jobMap[r.job_id]);
