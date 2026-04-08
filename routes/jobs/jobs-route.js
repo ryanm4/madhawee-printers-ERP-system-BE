@@ -331,6 +331,7 @@ jobsRouter.route("/")
 jobsRouter.route("/:jobId")
     .get(jobsController.getJobById)
     .put(jobsController.updateJob)
+    .patch(jobsController.updateJobStatus)
     .delete(jobsController.deleteJob);
 
 module.exports = jobsRouter;
