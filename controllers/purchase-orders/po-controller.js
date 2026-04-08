@@ -16,6 +16,10 @@ exports.getAllPOWithJobs = (req, res, next) => {
     po.customer_po,
     po.sales_ref, 
     po.currency,
+    po.created_on,
+    po.created_by,
+    po.updated_on,
+    po.updated_by,
     po.status AS po_status,
 
     c.customer_id,
@@ -69,6 +73,10 @@ exports.getAllPOWithJobs = (req, res, next) => {
           sales_ref: row.sales_ref,
           currency: row.currency,
           status: row.po_status,
+          created_on: row.created_on,
+          created_by: row.created_by,
+          updated_on: row.updated_on,
+          updated_by: row.updated_by,
 
           customer: row.customer_id
             ? {
