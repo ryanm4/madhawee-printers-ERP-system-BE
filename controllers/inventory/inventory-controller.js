@@ -59,6 +59,8 @@ exports.createInventoryItem = (req, res, next) => {
     item_sub_category,
     item_name,
     size,
+    height,
+    width,
     quantity,
     unit_of_measure,
     reorder_level,
@@ -73,6 +75,8 @@ exports.createInventoryItem = (req, res, next) => {
       item_sub_category,
       item_name,
       size,
+      height,
+      width,
       quantity,
       unit_of_measure,
       reorder_level,
@@ -80,7 +84,7 @@ exports.createInventoryItem = (req, res, next) => {
       remarks,
       created_on,
       created_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
   `;
 
   pool.query(
@@ -90,6 +94,8 @@ exports.createInventoryItem = (req, res, next) => {
       item_sub_category,
       item_name,
       size,
+      height,
+      width,
       quantity,
       unit_of_measure,
       reorder_level,
@@ -121,6 +127,8 @@ exports.updateInventoryItem = (req, res, next) => {
     item_sub_category,
     item_name,
     size,
+    height,
+    width,
     quantity,
     unit_of_measure,
     reorder_level,
@@ -136,6 +144,8 @@ exports.updateInventoryItem = (req, res, next) => {
       item_sub_category = ?,
       item_name = ?,
       size = ?,
+      height = ?,
+      width = ?,
       quantity = ?,
       unit_of_measure = ?,
       reorder_level = ?,
@@ -153,6 +163,8 @@ exports.updateInventoryItem = (req, res, next) => {
       item_sub_category,
       item_name,
       size,
+      height,
+      width,
       quantity,
       unit_of_measure,
       reorder_level,

@@ -46,9 +46,9 @@ exports.getJobsByPOId = (req, res, next) => {
           ...row,
           paper_type_id: row.paper_type_id
             ? row.paper_type_id
-                .toString()
-                .split(",")
-                .map((id) => Number(id))
+              .toString()
+              .split(",")
+              .map((id) => Number(id))
             : [],
           paper_coating_data: [],
           job_ink_data: [],
@@ -754,4 +754,44 @@ exports.getJobById = (req, res, next) => {
       );
     }
   );
+};
+
+exports.updateJobStatus = (req, res) => {
+  const { jobId } = req.params;
+  const { status, updated_by } = req.body;
+
+  // Validation
+  if (!jobId) {
+    return res.status(400).json({ message: "jobId is required" });
+  }
+
+  if (!status) {
+    return res.status(400).json({ message: "status is required" });
+  }
+
+  const query = `
+    UPDATE jobs
+    SET 
+      status = ?,
+      updated_by = ?,
+      updated_on = NOW()
+    WHERE job_id = ?
+  `;
+
+  pool.query(query, [status, updated_by || null, jobId], (err, result) => {
+    if (err) {
+      console.error("Error updating job status:", err);
+      return res.status(500).json({ message: "Database error", error: err });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    return res.status(200).json({
+      message: "Job status updated successfully",
+      job_id: jobId,
+      status: status
+    });
+  });
 };
