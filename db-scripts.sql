@@ -142,6 +142,8 @@ CREATE TABLE
     `item_sub_category` VARCHAR(45) NULL,
     `item_name` VARCHAR(45) NULL,
     `size` VARCHAR(45) NULL,
+    `height` VARCHAR(45) NULL,
+    `width` VARCHAR(45) NULL,
     `quantity` VARCHAR(45) NULL,
     `unit_of_measure` VARCHAR(45) NULL,
     `reorder_level` VARCHAR(45) NULL,
