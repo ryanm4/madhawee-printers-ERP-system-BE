@@ -5,7 +5,7 @@ exports.getAllQuotes = (req, res, next) => {
   c.company_name,c.address AS customer_address,c.customer_type AS customer_type,
   c.phone AS customer_phone, c.email AS customer_email,
   q.type_id, q.delivery_days, q.tax_type_id,
-  q.currency, q.contact_person AS contact_person,
+  q.currency,q.marketing_person, q.contact_person AS contact_person,
   q.notes, q.status, q.created_on, q.created_by,
   q.updated_on, q.updated_by
   FROM \`erp_madhawi_db\`.\`quotations\`
@@ -43,6 +43,7 @@ exports.getQuoteById = (req, res, next) => {
         q.total_without_tax,
         q.net_total,
         q.contact_person,
+        q.marketing_person,
         q.notes,
         q.created_on,
         q.created_by,
@@ -88,6 +89,7 @@ exports.getQuoteById = (req, res, next) => {
       total_without_tax: results[0].total_without_tax,
       net_total: results[0].net_total,
       contact_person: results[0].contact_person,
+      marketing_person: results[0].marketing_person,
       notes: results[0].notes,
       created_on: results[0].created_on,
       created_by: results[0].created_by,
@@ -131,6 +133,7 @@ exports.createQuote = (req, res, next) => {
     total_without_tax,
     net_total,
     contact_person,
+    marketing_person,
     notes,
     created_by,
     updated_by,
@@ -154,8 +157,8 @@ exports.createQuote = (req, res, next) => {
         INSERT INTO quotations (
           customer_id, type_id, delivery_days, tax_type_id,
           currency, sub_total, no_of_items, total_without_tax, net_total,
-          contact_person, notes, created_on, created_by, updated_on, updated_by, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NULL, ?, ?)
+          contact_person, marketing_person, notes, created_on, created_by, updated_on, updated_by, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NULL, ?, ?)
       `;
 
       const quoteValues = [
@@ -169,6 +172,7 @@ exports.createQuote = (req, res, next) => {
         total_without_tax,
         net_total,
         contact_person,
+        marketing_person,
         notes,
         created_by,
         updated_by,
@@ -256,6 +260,7 @@ exports.updateQuote = (req, res, next) => {
     total_without_tax,
     net_total,
     contact_person,
+    marketing_person,
     notes,
     updated_by,
     status,
@@ -287,6 +292,7 @@ exports.updateQuote = (req, res, next) => {
           total_without_tax = ?, 
           net_total = ?, 
           contact_person = ?, 
+          marketing_person = ?,
           notes = ?, 
           updated_on = NOW(), 
           updated_by = ?, 
@@ -305,6 +311,7 @@ exports.updateQuote = (req, res, next) => {
         total_without_tax,
         net_total,
         contact_person,
+        marketing_person,
         notes,
         updated_by,
         status,
