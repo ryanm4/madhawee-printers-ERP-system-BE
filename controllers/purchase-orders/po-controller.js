@@ -502,7 +502,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
           updated_by = ?,
           status = ?,
           customer_po = ?,
-          sales_ref = ?
+          sales_ref = ?,
           currency = ?
         WHERE po_id = ?
       `;

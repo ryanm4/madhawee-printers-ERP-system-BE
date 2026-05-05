@@ -14,7 +14,7 @@ exports.getAllGRNs = async (req, res) => {
         const query = `
       SELECT
         grn.id AS grn_id,
-        grn.releated_po,
+        grn.related_po,
         grn.received_date,
         grn.supplier_name,
         grn.stock_location,
@@ -107,7 +107,7 @@ exports.getGRNById = async (req, res) => {
     const query = `
       SELECT
         grn.id AS grn_id,
-        grn.releated_po,
+        grn.related_po,
         grn.received_date,
         grn.supplier_name,
         grn.stock_location,
