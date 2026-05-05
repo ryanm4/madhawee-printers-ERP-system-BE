@@ -84,49 +84,101 @@ exports.createDispatch = (req, res, next) => {
     created_by,
   } = req.body;
 
-  const query = `
-    INSERT INTO \`erp_madhawi_db\`.dispatch (
-      customer_id,
-      job_id,
-      dispatch_note,
-      dispatch_date,
-      dispatch_qty,
-      no_of_bundles,
-      description,
-      delivery_address,
-      status,
-      created_by,
-      created_on
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-  `;
+  pool.getConnection((err, connection) => {
+    if (err) {
+      console.error("Connection error:", err);
+      return next(err);
+    }
 
-  pool.query(
-    query,
-    [
-      customer_id,
-      job_id,
-      dispatch_note,
-      dispatch_date,
-      dispatch_qty,
-      no_of_bundles,
-      description,
-      delivery_address,
-      status,
-      created_by,
-    ],
-    (err, result) => {
+    connection.beginTransaction((err) => {
       if (err) {
-        console.error("Error creating dispatch:", err);
+        connection.release();
         return next(err);
       }
 
-      res.status(201).json({
-        status: "success",
-        message: "Dispatch created successfully",
-        dispatch_id: result.insertId, // ✅ AUTO_INCREMENT ID
-      });
-    }
-  );
+      const insertDispatchQuery = `
+        INSERT INTO erp_madhawi_db.dispatch (
+          customer_id,
+          job_id,
+          dispatch_note,
+          dispatch_date,
+          dispatch_qty,
+          no_of_bundles,
+          description,
+          delivery_address,
+          status,
+          created_by,
+          created_on
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      `;
+
+      connection.query(
+        insertDispatchQuery,
+        [
+          customer_id,
+          job_id,
+          dispatch_note,
+          dispatch_date,
+          dispatch_qty,
+          no_of_bundles,
+          description,
+          delivery_address,
+          status,
+          created_by,
+        ],
+        (err, result) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              console.error("Error creating dispatch:", err);
+              next(err);
+            });
+          }
+
+          // ✅ Update completed_qty in jobs
+          const updateJobQuery = `
+            UPDATE erp_madhawi_db.jobs
+            SET 
+              completed_qty = completed_qty + ?,
+              updated_on = NOW(),
+              updated_by = ?
+            WHERE job_id = ?
+          `;
+
+          connection.query(
+            updateJobQuery,
+            [dispatch_qty, created_by, job_id],
+            (err) => {
+              if (err) {
+                return connection.rollback(() => {
+                  connection.release();
+                  console.error("Error updating job:", err);
+                  next(err);
+                });
+              }
+
+              connection.commit((err) => {
+                if (err) {
+                  return connection.rollback(() => {
+                    connection.release();
+                    next(err);
+                  });
+                }
+
+                connection.release();
+
+                res.status(201).json({
+                  status: "success",
+                  message: "Dispatch created and job updated successfully",
+                  dispatch_id: result.insertId,
+                });
+              });
+            }
+          );
+        }
+      );
+    });
+  });
 };
 
 
