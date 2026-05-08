@@ -133,6 +133,7 @@ exports.createJob = (req, res, next) => {
     new_plate_quantity,
     new_plate_status,
     new_plate_remarks,
+    order_received_date,
     created_by,
     paperCoating = [],
     inks = [],
@@ -160,9 +161,9 @@ exports.createJob = (req, res, next) => {
          quantity, coating, packing_date, expiry_date,
          description, artwork, remarks, status, completed_qty, wastage,
          old_plate_quantity, old_plate_status, old_plate_remarks,
-         new_plate_quantity, new_plate_status, new_plate_remarks,
+         new_plate_quantity, new_plate_status, new_plate_remarks,order_received_date,
          created_on, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       const jobValues = [
         po_id,
@@ -188,6 +189,7 @@ exports.createJob = (req, res, next) => {
         new_plate_quantity,
         new_plate_status,
         new_plate_remarks,
+        order_received_date,
         createdOn,
         created_by,
       ];
@@ -344,6 +346,7 @@ exports.updateJob = (req, res, next) => {
     job_item = null,
     completed_qty = 0,
     wastage = "0",
+    order_received_date = null, 
     updated_by,
     paperCoating = [],
     inks = [],
@@ -365,7 +368,7 @@ exports.updateJob = (req, res, next) => {
         `UPDATE jobs SET
           job_name=?, product_type=?, paper_type_id=?, quantity=?, coating=?,
           packing_date=?, expiry_date=?, description=?, artwork=?,
-          remarks=?, status=?, completed_qty=?, job_item=?, wastage=?,
+          remarks=?, status=?, completed_qty=?, job_item=?, wastage=?, order_received_date=?,
           updated_on=?, updated_by=?
          WHERE job_id=?`,
         [
@@ -383,6 +386,7 @@ exports.updateJob = (req, res, next) => {
           completed_qty,
           job_item,
           wastage,
+          order_received_date,
           updatedOn,
           updated_by,
           jobId,
