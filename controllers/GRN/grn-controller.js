@@ -50,7 +50,7 @@ exports.getAllGRNs = async (req, res) => {
             if (!grnMap[row.grn_id]) {
                 grnMap[row.grn_id] = {
                     id: row.grn_id,
-                    releated_po: row.releated_po,
+                    related_po: row.related_po,
                     received_date: row.received_date,
                     supplier_name: row.supplier_name,
                     stock_location: row.stock_location,
@@ -136,7 +136,7 @@ exports.getGRNById = async (req, res) => {
 
     const grn = {
       id: results[0].grn_id,
-      releated_po: results[0].releated_po,
+      related_po: results[0].related_po,
       received_date: results[0].received_date,
       supplier_name: results[0].supplier_name,
       stock_location: results[0].stock_location,
@@ -171,7 +171,7 @@ exports.getGRNById = async (req, res) => {
 
 exports.createGRN = (req, res) => {
   const {
-    releated_po,
+    related_po,
     received_date,
     supplier_name,
     stock_location,
@@ -193,7 +193,7 @@ exports.createGRN = (req, res) => {
       // 1️⃣ Insert GRN
       const grnQuery = `
         INSERT INTO goods_receive_notes (
-          releated_po, received_date, supplier_name, stock_location,
+          related_po, received_date, supplier_name, stock_location,
           payee_name, payment_method, currency,
           supplier_invoice_no, remarks, created_on, created_by
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
@@ -202,7 +202,7 @@ exports.createGRN = (req, res) => {
       connection.query(
         grnQuery,
         [
-          releated_po,
+          related_po,
           received_date,
           supplier_name,
           stock_location,
@@ -356,7 +356,7 @@ exports.createGRN = (req, res) => {
 exports.updateGRN = (req, res) => {
   const { id } = req.params;
   const {
-    releated_po,
+    related_po,
     received_date,
     supplier_name,
     stock_location,
@@ -379,7 +379,7 @@ exports.updateGRN = (req, res) => {
       const updateQuery = `
         UPDATE goods_receive_notes
         SET
-          releated_po = ?,
+          related_po = ?,
           received_date = ?,
           supplier_name = ?,
           stock_location = ?,
@@ -396,7 +396,7 @@ exports.updateGRN = (req, res) => {
       connection.query(
         updateQuery,
         [
-          releated_po,
+          related_po,
           received_date,
           supplier_name,
           stock_location,
