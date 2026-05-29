@@ -166,7 +166,6 @@ exports.generateReport = async (req, res) => {
 exports.getDashboardInsights = (req, res) => {
   const { dateFrom, dateTo } = req.body;
 
-  // Fallback dates
   const fromDate = dateFrom || "2000-01-01";
   const toDate = dateTo || new Date();
 
@@ -176,74 +175,70 @@ exports.getDashboardInsights = (req, res) => {
     insights: [],
   };
 
-  /* ================= SALES KPIs ================= */
-  const salesQuery = `
+  /* ================= QUOTATION KPIs (GLOBAL) ================= */
+  const quotationQuery = `
     SELECT
-      COUNT(DISTINCT q.quote_id) AS total_quotations,
+      COUNT(*) AS total_quotations,
 
-      SUM(
+      COUNT(
         CASE
-          WHEN q.status = 'Approved' THEN 1
-          ELSE 0
+          WHEN status = 'ACCEPTED' THEN 1
         END
-      ) AS approved_quotations,
+      ) AS approved_quotations
 
-      po.currency,
-
-      IFNULL(
-        SUM(
-          CAST(pod.quantity AS DECIMAL(10,2)) *
-          CAST(pod.price AS DECIMAL(10,2))
-        ),
-        0
-      ) AS total_revenue
-
-    FROM quotations q
-
-    LEFT JOIN purchase_orders po
-      ON po.quote_id = q.quote_id
-
-    LEFT JOIN po_items_details pod
-      ON pod.po_id = po.po_id
-
-    WHERE q.created_on BETWEEN ? AND ?
-
-    GROUP BY po.currency
+    FROM quotations
+    WHERE created_on BETWEEN ? AND ?
   `;
 
-  pool.query(salesQuery, [fromDate, toDate], (err, sales) => {
+  pool.query(quotationQuery, [fromDate, toDate], (err, quotes) => {
     if (err) return res.status(500).json(err);
 
-    // Revenue by currency
-    const revenueByCurrency = {
-      USD: 0,
-      LKR: 0,
-    };
+    const totalQuotations = Number(quotes[0].total_quotations || 0);
+    const approvedQuotations = Number(quotes[0].approved_quotations || 0);
 
-    sales.forEach((row) => {
-      // Skip null/empty currencies
-      if (!row.currency) return;
+    /* ================= REVENUE (FROM PO ITEMS ONLY) ================= */
+    const revenueQuery = `
+      SELECT
+        po.currency,
 
-      revenueByCurrency[row.currency] = Number(
-        row.total_revenue || 0
-      );
-    });
+        IFNULL(
+          SUM(
+            CAST(pod.quantity AS DECIMAL(10,2)) *
+            CAST(pod.price AS DECIMAL(10,2))
+          ),
+          0
+        ) AS total_revenue
 
-    const totalQuotations =
-      sales.length > 0
-        ? Number(sales[0].total_quotations || 0)
-        : 0;
+      FROM purchase_orders po
 
-    const approvedQuotations =
-      sales.length > 0
-        ? Number(sales[0].approved_quotations || 0)
-        : 0;
+      LEFT JOIN po_items_details pod
+        ON pod.po_id = po.po_id
 
-    /* ================= REVENUE TREND ================= */
-    const revenueTrendQuery = `
+      WHERE po.created_on BETWEEN ? AND ?
+
+      GROUP BY po.currency
+    `;
+
+    pool.query(revenueQuery, [fromDate, toDate], (err, revenue) => {
+      if (err) return res.status(500).json(err);
+
+      const revenueByCurrency = {
+        USD: 0,
+        LKR: 0,
+      };
+
+      revenue.forEach((row) => {
+        if (!row.currency) return;
+
+        if (row.currency === "USD" || row.currency === "LKR") {
+          revenueByCurrency[row.currency] = Number(row.total_revenue || 0);
+        }
+      });
+
+      /* ================= REVENUE TREND ================= */
+      const revenueTrendQuery = `
         SELECT
           DATE_FORMAT(po.created_on, '%Y-%m') AS month,
-
           po.currency,
 
           IFNULL(
@@ -266,10 +261,7 @@ exports.getDashboardInsights = (req, res) => {
         ORDER BY month
       `;
 
-    pool.query(
-      revenueTrendQuery,
-      [fromDate, toDate],
-      (err, revenueTrend) => {
+      pool.query(revenueTrendQuery, [fromDate, toDate], (err, revenueTrend) => {
         if (err) return res.status(500).json(err);
 
         /* ================= JOB KPIs ================= */
@@ -286,20 +278,18 @@ exports.getDashboardInsights = (req, res) => {
 
             ROUND(
               IFNULL(
-                SUM(completed_qty) /
-                NULLIF(SUM(quantity), 0),
+                SUM(completed_qty) / NULLIF(SUM(quantity), 0),
                 0
               ) * 100,
               2
             ) AS production_efficiency
-
           FROM jobs
         `;
 
         pool.query(jobQuery, (err, jobs) => {
           if (err) return res.status(500).json(err);
 
-          /* ================= INVENTORY KPIs ================= */
+          /* ================= INVENTORY ================= */
           const inventoryQuery = `
             SELECT COUNT(*) AS low_stock_items
             FROM main_inventory
@@ -309,7 +299,7 @@ exports.getDashboardInsights = (req, res) => {
           pool.query(inventoryQuery, (err, inventory) => {
             if (err) return res.status(500).json(err);
 
-            /* ================= DISPATCH KPIs ================= */
+            /* ================= DISPATCH ================= */
             const dispatchQuery = `
               SELECT
                 COUNT(*) AS total_dispatches,
@@ -320,14 +310,13 @@ exports.getDashboardInsights = (req, res) => {
                     ELSE 0
                   END
                 ) AS completed_dispatches
-
               FROM dispatch
             `;
 
             pool.query(dispatchQuery, (err, dispatch) => {
               if (err) return res.status(500).json(err);
 
-              /* ================= BUILD RESPONSE ================= */
+              /* ================= FINAL RESPONSE ================= */
 
               response.kpis = [
                 {
@@ -344,24 +333,15 @@ exports.getDashboardInsights = (req, res) => {
                 },
                 {
                   key: "productionEfficiency",
-                  value:
-                    Number(
-                      jobs[0].production_efficiency
-                    ) || 0,
+                  value: Number(jobs[0].production_efficiency || 0),
                 },
                 {
                   key: "lowStockItems",
-                  value:
-                    Number(
-                      inventory[0].low_stock_items
-                    ) || 0,
+                  value: Number(inventory[0].low_stock_items || 0),
                 },
                 {
                   key: "totalDispatches",
-                  value:
-                    Number(
-                      dispatch[0].total_dispatches
-                    ) || 0,
+                  value: Number(dispatch[0].total_dispatches || 0),
                 },
               ];
 
@@ -373,46 +353,28 @@ exports.getDashboardInsights = (req, res) => {
 
               /* ================= INSIGHTS ================= */
 
-              if (
-                approvedQuotations < totalQuotations
-              ) {
-                response.insights.push(
-                  "High number of pending quotations"
-                );
+              if (approvedQuotations < totalQuotations) {
+                response.insights.push("High number of pending quotations");
               } else {
-                response.insights.push(
-                  "Quotation approvals are healthy"
-                );
+                response.insights.push("Quotation approvals are healthy");
               }
 
-              if (
-                inventory[0].low_stock_items > 0
-              ) {
-                response.insights.push(
-                  "Inventory reorder required"
-                );
+              if (inventory[0].low_stock_items > 0) {
+                response.insights.push("Inventory reorder required");
               } else {
-                response.insights.push(
-                  "Inventory levels are healthy"
-                );
+                response.insights.push("Inventory levels are healthy");
               }
 
-              if (
-                Number(
-                  jobs[0].production_efficiency
-                ) < 85
-              ) {
-                response.insights.push(
-                  "Production efficiency is below optimal level"
-                );
+              if (Number(jobs[0].production_efficiency || 0) < 85) {
+                response.insights.push("Production efficiency is below optimal level");
               }
 
               res.status(200).json(response);
             });
           });
         });
-      }
-    );
+      });
+    });
   });
 };
 
