@@ -166,120 +166,253 @@ exports.generateReport = async (req, res) => {
 exports.getDashboardInsights = (req, res) => {
   const { dateFrom, dateTo } = req.body;
 
-  // Fallback dates (last 30 days)
-  const fromDate = dateFrom || '2000-01-01';
+  // Fallback dates
+  const fromDate = dateFrom || "2000-01-01";
   const toDate = dateTo || new Date();
 
   const response = {
     kpis: [],
     analytics: {},
-    insights: []
+    insights: [],
   };
 
   /* ================= SALES KPIs ================= */
   const salesQuery = `
     SELECT
-      COUNT(*) AS total_quotations,
-      SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) AS approved_quotations,
-      IFNULL(SUM(net_total), 0) AS total_revenue,
-      IFNULL(AVG(net_total), 0) AS avg_quote_value
-    FROM quotations
-    WHERE created_on BETWEEN ? AND ?
+      COUNT(DISTINCT q.quote_id) AS total_quotations,
+
+      SUM(
+        CASE
+          WHEN q.status = 'Approved' THEN 1
+          ELSE 0
+        END
+      ) AS approved_quotations,
+
+      po.currency,
+
+      IFNULL(
+        SUM(
+          CAST(pod.quantity AS DECIMAL(10,2)) *
+          CAST(pod.price AS DECIMAL(10,2))
+        ),
+        0
+      ) AS total_revenue
+
+    FROM quotations q
+
+    LEFT JOIN purchase_orders po
+      ON po.quote_id = q.quote_id
+
+    LEFT JOIN po_items_details pod
+      ON pod.po_id = po.po_id
+
+    WHERE q.created_on BETWEEN ? AND ?
+
+    GROUP BY po.currency
   `;
 
   pool.query(salesQuery, [fromDate, toDate], (err, sales) => {
     if (err) return res.status(500).json(err);
 
+    // Revenue by currency
+    const revenueByCurrency = {
+      USD: 0,
+      LKR: 0,
+    };
+
+    sales.forEach((row) => {
+      // Skip null/empty currencies
+      if (!row.currency) return;
+
+      revenueByCurrency[row.currency] = Number(
+        row.total_revenue || 0
+      );
+    });
+
+    const totalQuotations =
+      sales.length > 0
+        ? Number(sales[0].total_quotations || 0)
+        : 0;
+
+    const approvedQuotations =
+      sales.length > 0
+        ? Number(sales[0].approved_quotations || 0)
+        : 0;
+
     /* ================= REVENUE TREND ================= */
     const revenueTrendQuery = `
-      SELECT
-        DATE_FORMAT(created_on, '%Y-%m') AS month,
-        SUM(net_total) AS revenue
-      FROM quotations
-      WHERE created_on BETWEEN ? AND ?
-      GROUP BY month
-      ORDER BY month
-    `;
-
-    pool.query(revenueTrendQuery, [fromDate, toDate], (err, revenueTrend) => {
-      if (err) return res.status(500).json(err);
-
-      /* ================= JOB KPIs ================= */
-      const jobQuery = `
         SELECT
-          COUNT(*) AS total_jobs,
-          SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) AS completed_jobs,
-          ROUND(
-            IFNULL(SUM(completed_qty) / NULLIF(SUM(quantity), 0), 0) * 100,
-            2
-          ) AS production_efficiency
-        FROM jobs
+          DATE_FORMAT(po.created_on, '%Y-%m') AS month,
+
+          po.currency,
+
+          IFNULL(
+            SUM(
+              CAST(pod.quantity AS DECIMAL(10,2)) *
+              CAST(pod.price AS DECIMAL(10,2))
+            ),
+            0
+          ) AS revenue
+
+        FROM purchase_orders po
+
+        LEFT JOIN po_items_details pod
+          ON pod.po_id = po.po_id
+
+        WHERE po.created_on BETWEEN ? AND ?
+
+        GROUP BY month, po.currency
+
+        ORDER BY month
       `;
 
-      pool.query(jobQuery, (err, jobs) => {
+    pool.query(
+      revenueTrendQuery,
+      [fromDate, toDate],
+      (err, revenueTrend) => {
         if (err) return res.status(500).json(err);
 
-        /* ================= INVENTORY KPIs ================= */
-        const inventoryQuery = `
-          SELECT COUNT(*) AS low_stock_items
-          FROM main_inventory
-          WHERE quantity < reorder_level
+        /* ================= JOB KPIs ================= */
+        const jobQuery = `
+          SELECT
+            COUNT(*) AS total_jobs,
+
+            SUM(
+              CASE
+                WHEN status = 'Completed' THEN 1
+                ELSE 0
+              END
+            ) AS completed_jobs,
+
+            ROUND(
+              IFNULL(
+                SUM(completed_qty) /
+                NULLIF(SUM(quantity), 0),
+                0
+              ) * 100,
+              2
+            ) AS production_efficiency
+
+          FROM jobs
         `;
 
-        pool.query(inventoryQuery, (err, inventory) => {
+        pool.query(jobQuery, (err, jobs) => {
           if (err) return res.status(500).json(err);
 
-          /* ================= DISPATCH KPIs ================= */
-          const dispatchQuery = `
-            SELECT
-              COUNT(*) AS total_dispatches,
-              SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) AS completed_dispatches
-            FROM dispatch
+          /* ================= INVENTORY KPIs ================= */
+          const inventoryQuery = `
+            SELECT COUNT(*) AS low_stock_items
+            FROM main_inventory
+            WHERE quantity < reorder_level
           `;
 
-          pool.query(dispatchQuery, (err, dispatch) => {
+          pool.query(inventoryQuery, (err, inventory) => {
             if (err) return res.status(500).json(err);
 
-            /* ================= BUILD RESPONSE ================= */
+            /* ================= DISPATCH KPIs ================= */
+            const dispatchQuery = `
+              SELECT
+                COUNT(*) AS total_dispatches,
 
-            response.kpis = [
-              { key: 'totalQuotations', value: sales[0].total_quotations },
-              { key: 'approvedQuotations', value: sales[0].approved_quotations },
-              { key: 'totalRevenue', value: sales[0].total_revenue },
-              { key: 'avgQuoteValue', value: sales[0].avg_quote_value },
-              { key: 'productionEfficiency', value: jobs[0].production_efficiency },
-              { key: 'lowStockItems', value: inventory[0].low_stock_items },
-              { key: 'totalDispatches', value: dispatch[0].total_dispatches }
-            ];
+                SUM(
+                  CASE
+                    WHEN status = 'Completed' THEN 1
+                    ELSE 0
+                  END
+                ) AS completed_dispatches
 
-            response.analytics = {
-              revenueTrend,
-              jobStats: jobs[0],
-              dispatchStats: dispatch[0]
-            };
+              FROM dispatch
+            `;
 
-            /* ================= INSIGHTS ================= */
-            if (sales[0].approved_quotations < sales[0].total_quotations) {
-              response.insights.push('High number of pending quotations');
-            } else {
-              response.insights.push('Quotation approvals are healthy');
-            }
+            pool.query(dispatchQuery, (err, dispatch) => {
+              if (err) return res.status(500).json(err);
 
-            if (inventory[0].low_stock_items > 0) {
-              response.insights.push('Inventory reorder required');
-            } else {
-              response.insights.push('Inventory levels are healthy');
-            }
+              /* ================= BUILD RESPONSE ================= */
 
-            if (jobs[0].production_efficiency < 85) {
-              response.insights.push('Production efficiency is below optimal level');
-            }
+              response.kpis = [
+                {
+                  key: "totalQuotations",
+                  value: totalQuotations,
+                },
+                {
+                  key: "approvedQuotations",
+                  value: approvedQuotations,
+                },
+                {
+                  key: "totalRevenue",
+                  value: revenueByCurrency,
+                },
+                {
+                  key: "productionEfficiency",
+                  value:
+                    Number(
+                      jobs[0].production_efficiency
+                    ) || 0,
+                },
+                {
+                  key: "lowStockItems",
+                  value:
+                    Number(
+                      inventory[0].low_stock_items
+                    ) || 0,
+                },
+                {
+                  key: "totalDispatches",
+                  value:
+                    Number(
+                      dispatch[0].total_dispatches
+                    ) || 0,
+                },
+              ];
 
-            res.status(200).json(response);
+              response.analytics = {
+                revenueTrend,
+                jobStats: jobs[0],
+                dispatchStats: dispatch[0],
+              };
+
+              /* ================= INSIGHTS ================= */
+
+              if (
+                approvedQuotations < totalQuotations
+              ) {
+                response.insights.push(
+                  "High number of pending quotations"
+                );
+              } else {
+                response.insights.push(
+                  "Quotation approvals are healthy"
+                );
+              }
+
+              if (
+                inventory[0].low_stock_items > 0
+              ) {
+                response.insights.push(
+                  "Inventory reorder required"
+                );
+              } else {
+                response.insights.push(
+                  "Inventory levels are healthy"
+                );
+              }
+
+              if (
+                Number(
+                  jobs[0].production_efficiency
+                ) < 85
+              ) {
+                response.insights.push(
+                  "Production efficiency is below optimal level"
+                );
+              }
+
+              res.status(200).json(response);
+            });
           });
         });
-      });
-    });
+      }
+    );
   });
 };
 
