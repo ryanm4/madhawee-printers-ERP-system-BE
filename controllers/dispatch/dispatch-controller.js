@@ -137,13 +137,13 @@ exports.createDispatch = (req, res, next) => {
 
           // ✅ Update completed_qty in jobs
           const updateJobQuery = `
-            UPDATE erp_madhawi_db.jobs
-            SET 
-              completed_qty = completed_qty + ?,
-              updated_on = NOW(),
-              updated_by = ?
-            WHERE job_id = ?
-          `;
+          UPDATE erp_madhawi_db.jobs
+          SET 
+            completed_qty = COALESCE(completed_qty, 0) + ?,
+            updated_on = NOW(),
+            updated_by = ?
+          WHERE job_id = ?
+        `;
 
           connection.query(
             updateJobQuery,
@@ -180,7 +180,6 @@ exports.createDispatch = (req, res, next) => {
     });
   });
 };
-
 
 exports.getDispatchById = (req, res, next) => {
   const { dispatch_id } = req.params;
@@ -246,8 +245,8 @@ exports.getDispatchById = (req, res, next) => {
 
     // ✅ Build job materials array
     const jobMaterials = results
-      .filter(r => r.job_material_id)
-      .map(r => ({
+      .filter((r) => r.job_material_id)
+      .map((r) => ({
         job_material_id: r.job_material_id,
         item_id: r.item_id,
         material_type: r.material_type,
@@ -296,7 +295,6 @@ exports.getDispatchById = (req, res, next) => {
     });
   });
 };
-
 
 exports.updateDispatch = (req, res, next) => {
   const { dispatch_id } = req.params;
