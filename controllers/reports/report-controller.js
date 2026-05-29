@@ -175,7 +175,7 @@ exports.getDashboardInsights = (req, res) => {
     insights: [],
   };
 
-  /* ================= QUOTATION KPIs (GLOBAL) ================= */
+  /* ================= QUOTATIONS ================= */
   const quotationQuery = `
     SELECT
       COUNT(*) AS total_quotations,
@@ -196,7 +196,7 @@ exports.getDashboardInsights = (req, res) => {
     const totalQuotations = Number(quotes[0].total_quotations || 0);
     const approvedQuotations = Number(quotes[0].approved_quotations || 0);
 
-    /* ================= REVENUE (FROM PO ITEMS ONLY) ================= */
+    /* ================= PO REVENUE ================= */
     const revenueQuery = `
       SELECT
         po.currency,
@@ -222,65 +222,67 @@ exports.getDashboardInsights = (req, res) => {
     pool.query(revenueQuery, [fromDate, toDate], (err, revenue) => {
       if (err) return res.status(500).json(err);
 
-      const revenueByCurrency = {
-        USD: 0,
-        LKR: 0,
-      };
+      const revenueByCurrency = { USD: 0, LKR: 0 };
 
-      revenue.forEach((row) => {
-        if (!row.currency) return;
-
-        if (row.currency === "USD" || row.currency === "LKR") {
-          revenueByCurrency[row.currency] = Number(row.total_revenue || 0);
+      revenue.forEach((r) => {
+        if (r.currency === "USD" || r.currency === "LKR") {
+          revenueByCurrency[r.currency] = Number(r.total_revenue || 0);
         }
       });
 
-      /* ================= REVENUE TREND ================= */
-      const revenueTrendQuery = `
-        SELECT
-          DATE_FORMAT(po.created_on, '%Y-%m') AS month,
-          po.currency,
+      /* ================= DISPATCH REVENUE ================= */
+      const dispatchRevenueQuery = `
+          SELECT
+            po.currency,
 
-          IFNULL(
-            SUM(
-              CAST(pod.quantity AS DECIMAL(10,2)) *
-              CAST(pod.price AS DECIMAL(10,2))
-            ),
-            0
-          ) AS revenue
+            IFNULL(
+              SUM(
+                CAST(d.dispatch_qty AS DECIMAL(10,2)) *
+                po_total.total_price
+              ),
+              0
+            ) AS dispatch_revenue
 
-        FROM purchase_orders po
+          FROM dispatch d
 
-        LEFT JOIN po_items_details pod
-          ON pod.po_id = po.po_id
+          INNER JOIN jobs j
+            ON d.job_id = j.job_id
 
-        WHERE po.created_on BETWEEN ? AND ?
+          INNER JOIN purchase_orders po
+            ON j.po_id = po.po_id
 
-        GROUP BY month, po.currency
+          INNER JOIN (
+            SELECT
+              po_id,
+              SUM(CAST(quantity AS DECIMAL(10,2)) * CAST(price AS DECIMAL(10,2))) AS total_price
+            FROM po_items_details
+            GROUP BY po_id
+          ) po_total
+            ON po_total.po_id = po.po_id
 
-        ORDER BY month
-      `;
+          WHERE d.created_on BETWEEN ? AND ?
 
-      pool.query(revenueTrendQuery, [fromDate, toDate], (err, revenueTrend) => {
+          GROUP BY po.currency
+        `;
+
+      pool.query(dispatchRevenueQuery, [fromDate, toDate], (err, dispatchRev) => {
         if (err) return res.status(500).json(err);
 
-        /* ================= JOB KPIs ================= */
+        const dispatchRevenue = { USD: 0, LKR: 0 };
+
+        dispatchRev.forEach((r) => {
+          if (r.currency === "USD" || r.currency === "LKR") {
+            dispatchRevenue[r.currency] = Number(r.dispatch_revenue || 0);
+          }
+        });
+
+        /* ================= JOBS ================= */
         const jobQuery = `
           SELECT
             COUNT(*) AS total_jobs,
-
-            SUM(
-              CASE
-                WHEN status = 'Completed' THEN 1
-                ELSE 0
-              END
-            ) AS completed_jobs,
-
+            SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) AS completed_jobs,
             ROUND(
-              IFNULL(
-                SUM(completed_qty) / NULLIF(SUM(quantity), 0),
-                0
-              ) * 100,
+              IFNULL(SUM(completed_qty) / NULLIF(SUM(quantity), 0), 0) * 100,
               2
             ) AS production_efficiency
           FROM jobs
@@ -303,34 +305,23 @@ exports.getDashboardInsights = (req, res) => {
             const dispatchQuery = `
               SELECT
                 COUNT(*) AS total_dispatches,
-
-                SUM(
-                  CASE
-                    WHEN status = 'Completed' THEN 1
-                    ELSE 0
-                  END
-                ) AS completed_dispatches
+                SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) AS completed_dispatches
               FROM dispatch
             `;
 
             pool.query(dispatchQuery, (err, dispatch) => {
               if (err) return res.status(500).json(err);
 
-              /* ================= FINAL RESPONSE ================= */
+              /* ================= RESPONSE ================= */
 
               response.kpis = [
-                {
-                  key: "totalQuotations",
-                  value: totalQuotations,
-                },
-                {
-                  key: "approvedQuotations",
-                  value: approvedQuotations,
-                },
-                {
-                  key: "totalRevenue",
-                  value: revenueByCurrency,
-                },
+                { key: "totalQuotations", value: totalQuotations },
+                { key: "approvedQuotations", value: approvedQuotations },
+
+                { key: "totalRevenue", value: revenueByCurrency },
+
+                { key: "dispatchRevenue", value: dispatchRevenue },
+
                 {
                   key: "productionEfficiency",
                   value: Number(jobs[0].production_efficiency || 0),
@@ -346,27 +337,29 @@ exports.getDashboardInsights = (req, res) => {
               ];
 
               response.analytics = {
-                revenueTrend,
+                revenueTrend: [],
                 jobStats: jobs[0],
                 dispatchStats: dispatch[0],
               };
 
               /* ================= INSIGHTS ================= */
 
-              if (approvedQuotations < totalQuotations) {
-                response.insights.push("High number of pending quotations");
-              } else {
-                response.insights.push("Quotation approvals are healthy");
-              }
+              response.insights.push(
+                approvedQuotations < totalQuotations
+                  ? "High number of pending quotations"
+                  : "Quotation approvals are healthy"
+              );
 
-              if (inventory[0].low_stock_items > 0) {
-                response.insights.push("Inventory reorder required");
-              } else {
-                response.insights.push("Inventory levels are healthy");
-              }
+              response.insights.push(
+                inventory[0].low_stock_items > 0
+                  ? "Inventory reorder required"
+                  : "Inventory levels are healthy"
+              );
 
               if (Number(jobs[0].production_efficiency || 0) < 85) {
-                response.insights.push("Production efficiency is below optimal level");
+                response.insights.push(
+                  "Production efficiency is below optimal level"
+                );
               }
 
               res.status(200).json(response);
