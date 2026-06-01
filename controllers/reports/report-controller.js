@@ -232,38 +232,34 @@ exports.getDashboardInsights = (req, res) => {
 
       /* ================= DISPATCH REVENUE ================= */
       const dispatchRevenueQuery = `
-          SELECT
-            po.currency,
+              SELECT
+                po.currency,
 
-            IFNULL(
-              SUM(
-                CAST(d.dispatch_qty AS DECIMAL(10,2)) *
-                po_total.total_price
-              ),
-              0
-            ) AS dispatch_revenue
+                IFNULL(
+                  SUM(
+                    CAST(d.dispatch_qty AS DECIMAL(10,2))
+                    *
+                    CAST(pod.price AS DECIMAL(10,2))
+                  ),
+                  0
+                ) AS dispatch_revenue
 
-          FROM dispatch d
+              FROM dispatch d
 
-          INNER JOIN jobs j
-            ON d.job_id = j.job_id
+              INNER JOIN jobs j
+                ON j.job_id = d.job_id
 
-          INNER JOIN purchase_orders po
-            ON j.po_id = po.po_id
+              INNER JOIN po_items_details pod
+                ON pod.po_id = j.po_id
+              AND TRIM(pod.description) = TRIM(j.job_item)
 
-          INNER JOIN (
-            SELECT
-              po_id,
-              SUM(CAST(quantity AS DECIMAL(10,2)) * CAST(price AS DECIMAL(10,2))) AS total_price
-            FROM po_items_details
-            GROUP BY po_id
-          ) po_total
-            ON po_total.po_id = po.po_id
+              INNER JOIN purchase_orders po
+                ON po.po_id = j.po_id
 
-          WHERE d.created_on BETWEEN ? AND ?
+              WHERE d.created_on BETWEEN ? AND ?
 
-          GROUP BY po.currency
-        `;
+              GROUP BY po.currency
+            `;
 
       pool.query(dispatchRevenueQuery, [fromDate, toDate], (err, dispatchRev) => {
         if (err) return res.status(500).json(err);
