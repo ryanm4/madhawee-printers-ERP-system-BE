@@ -336,6 +336,7 @@ exports.updateJob = (req, res, next) => {
     product_type = null,
     paper_type_id = null,
     quantity = null,
+    job_open_date = null,
     coating = null,
     packing_date = null,
     expiry_date = null,
@@ -366,7 +367,7 @@ exports.updateJob = (req, res, next) => {
       // 1️⃣ Update job table
       connection.query(
         `UPDATE jobs SET
-          job_name=?, product_type=?, paper_type_id=?, quantity=?, coating=?,
+          job_name=?, product_type=?, paper_type_id=?, quantity=?, coating=?,job_open_date=?,
           packing_date=?, expiry_date=?, description=?, artwork=?,
           remarks=?, status=?, completed_qty=?, job_item=?, wastage=?, order_received_date=?,
           updated_on=?, updated_by=?
@@ -377,6 +378,7 @@ exports.updateJob = (req, res, next) => {
           paper_type_id,
           quantity,
           coating,
+          job_open_date,
           packing_date,
           expiry_date,
           description,
