@@ -127,6 +127,7 @@ exports.createJob = (req, res, next) => {
     completed_qty,
     wastage,
     job_number,
+    job_ref_id,
     old_plate_quantity,
     old_plate_status,
     old_plate_remarks,
@@ -160,7 +161,7 @@ exports.createJob = (req, res, next) => {
         (po_id, customer_id, job_item, job_name, job_open_date, product_type, paper_type_id,
          quantity, coating, packing_date, expiry_date,
          description, artwork, remarks, status, completed_qty, wastage,
-         old_plate_quantity, old_plate_status, old_plate_remarks,
+         job_ref_id, old_plate_quantity, old_plate_status, old_plate_remarks,
          new_plate_quantity, new_plate_status, new_plate_remarks,order_received_date,
          created_on, created_by)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -183,6 +184,7 @@ exports.createJob = (req, res, next) => {
         status,
         completed_qty,
         wastage,
+        job_ref_id,
         old_plate_quantity,
         old_plate_status,
         old_plate_remarks,
@@ -345,6 +347,7 @@ exports.updateJob = (req, res, next) => {
     remarks = null,
     status = null,
     job_item = null,
+    job_ref_id = null,
     completed_qty = 0,
     wastage = "0",
     order_received_date = null, 
@@ -369,7 +372,7 @@ exports.updateJob = (req, res, next) => {
         `UPDATE jobs SET
           job_name=?, product_type=?, paper_type_id=?, quantity=?, coating=?,job_open_date=?,
           packing_date=?, expiry_date=?, description=?, artwork=?,
-          remarks=?, status=?, completed_qty=?, job_item=?, wastage=?, order_received_date=?,
+          remarks=?, status=?, completed_qty=?, job_item=?, wastage=?, order_received_date=?, job_ref_id=?,
           updated_on=?, updated_by=?
          WHERE job_id=?`,
         [
@@ -389,6 +392,7 @@ exports.updateJob = (req, res, next) => {
           job_item,
           wastage,
           order_received_date,
+          job_ref_id,
           updatedOn,
           updated_by,
           jobId,

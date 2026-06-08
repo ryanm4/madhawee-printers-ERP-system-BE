@@ -79,6 +79,7 @@ CREATE TABLE
     `completed_qty` INT ZEROFILL NOT NULL,
     `wastage` VARCHAR(45) NULL,
     `job_number` VARCHAR(45) NULL,
+    `job_ref_id` VARCHAR(45) NULL,
     `old_plate_quantity` INT NULL,
     `old_plate_status` VARCHAR(45) NULL,
     `old_plate_remarks` VARCHAR(45) NULL,
