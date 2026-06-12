@@ -1,5 +1,66 @@
 const pool = require("../../sql-connection");
 
+const JOB_NUMBER_TEMPLATES = {
+  TIEP: "MPL/####/YY/TIEP",
+  "NON-TIEP": "MPL/NT/####/YY/NON-TIEP",
+  MT: "MP/####/YY",
+};
+
+function resolveJobNumberTemplate(jobNumberInput) {
+  const normalizedKey = String(jobNumberInput).trim().toUpperCase().replace(/\s+/g, "-");
+
+  if (JOB_NUMBER_TEMPLATES[normalizedKey]) {
+    return JOB_NUMBER_TEMPLATES[normalizedKey];
+  }
+
+  if (jobNumberInput.includes("####") && jobNumberInput.includes("YY")) {
+    return jobNumberInput;
+  }
+
+  return null;
+}
+
+function buildSequenceRegex(template) {
+  const parts = template.split("####");
+  if (parts.length !== 2) return null;
+
+  const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const before = escapeRegex(parts[0]).replace(/YY/g, "\\d{2}");
+  const after = escapeRegex(parts[1]).replace(/YY/g, "\\d{2}");
+
+  return new RegExp(`^${before}(\\d+)${after}$`);
+}
+
+function getNextJobSequence(connection, template, callback) {
+  const likePattern = template.replace("####", "%").replace("YY", "__");
+  const sequenceRegex = buildSequenceRegex(template);
+
+  if (!sequenceRegex) {
+    return callback(new Error("Invalid job_number template. Use #### for sequence."));
+  }
+
+  const query = `
+    SELECT job_number
+    FROM jobs
+    WHERE job_number IS NOT NULL
+      AND job_number LIKE ?
+  `;
+
+  connection.query(query, [likePattern], (err, results) => {
+    if (err) return callback(err);
+
+    let maxSeq = 0;
+    (results || []).forEach((row) => {
+      const match = row.job_number.match(sequenceRegex);
+      if (match) {
+        maxSeq = Math.max(maxSeq, parseInt(match[1], 10));
+      }
+    });
+
+    callback(null, maxSeq + 1);
+  });
+}
+
 exports.getJobsByPOId = (req, res, next) => {
   const poId = req.params.poId;
 
@@ -205,27 +266,48 @@ exports.createJob = (req, res, next) => {
 
         const jobId = jobResult.insertId;
 
-        // 2️⃣ Generate Job Number
+        // 2️⃣ Generate Job Number (separate sequence per job type)
         let finalJobNumber = null;
         if (job_number) {
-          const year = new Date().getFullYear().toString().slice(-2);
-          const paddedId = String(jobId).padStart(4, "0");
-          finalJobNumber = job_number
-            .replace("####", paddedId)
-            .replace("YY", year);
+          const jobNumberTemplate = resolveJobNumberTemplate(job_number);
 
-          connection.query(
-            `UPDATE jobs SET job_number = ? WHERE job_id = ?`,
-            [finalJobNumber, jobId],
-            (err) => {
-              if (err)
-                return connection.rollback(() => {
-                  connection.release();
-                  next(err);
-                });
-              insertPaperCoating(0);
+          if (!jobNumberTemplate) {
+            return connection.rollback(() => {
+              connection.release();
+              res.status(400).json({
+                message:
+                  "Invalid job_number. Send TIEP, NON-TIEP, MT, or a template with #### and YY.",
+              });
+            });
+          }
+
+          getNextJobSequence(connection, jobNumberTemplate, (err, nextSequence) => {
+            if (err) {
+              return connection.rollback(() => {
+                connection.release();
+                next(err);
+              });
             }
-          );
+
+            const year = new Date().getFullYear().toString().slice(-2);
+            const paddedSequence = String(nextSequence).padStart(4, "0");
+            finalJobNumber = jobNumberTemplate
+              .replace("####", paddedSequence)
+              .replace("YY", year);
+
+            connection.query(
+              `UPDATE jobs SET job_number = ? WHERE job_id = ?`,
+              [finalJobNumber, jobId],
+              (err) => {
+                if (err)
+                  return connection.rollback(() => {
+                    connection.release();
+                    next(err);
+                  });
+                insertPaperCoating(0);
+              }
+            );
+          });
         } else {
           insertPaperCoating(0);
         }
