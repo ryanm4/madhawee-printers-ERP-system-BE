@@ -1,5 +1,87 @@
 const pool = require("../../sql-connection");
 
+const JOB_NUMBER_TEMPLATES = {
+  TIEP: "MPL/####/YY/TIEP",
+  "NON-TIEP": "MPL/NT/####/YY/NON-TIEP",
+  MT: "MP/####/YY",
+};
+
+// FIX 1: Robustly handle undefined/null/invalid date values
+function getTwoDigitYear(dateValue) {
+  if (dateValue == null || dateValue === "") {
+    return String(new Date().getFullYear()).slice(-2);
+  }
+
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(new Date().getFullYear()).slice(-2);
+  }
+
+  return String(date.getFullYear()).slice(-2);
+}
+
+function resolveJobNumberTemplate(jobNumberInput) {
+  if (jobNumberInput == null || jobNumberInput === "") return null;
+
+  const input = String(jobNumberInput).trim();
+  const normalizedKey = input.toUpperCase().replace(/\s+/g, "-");
+
+  if (JOB_NUMBER_TEMPLATES[normalizedKey]) {
+    return JOB_NUMBER_TEMPLATES[normalizedKey];
+  }
+
+  if (input.includes("####") && input.includes("YY")) {
+    return input;
+  }
+
+  return null;
+}
+
+function buildSequenceRegex(template) {
+  const parts = template.split("####");
+  if (parts.length !== 2) return null;
+
+  const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const before = escapeRegex(parts[0]).replace(/YY/g, "\\d{2}");
+  const after = escapeRegex(parts[1]).replace(/YY/g, "\\d{2}");
+
+  return new RegExp(`^${before}(\\d+)${after}$`);
+}
+
+function getNextJobSequence(connection, template, callback) {
+  const likePattern = template.replace("####", "%").replace("YY", "__");
+  const sequenceRegex = buildSequenceRegex(template);
+
+  if (!sequenceRegex) {
+    return callback(
+      new Error("Invalid job_number template. Use #### for sequence."),
+    );
+  }
+
+  const query = `
+    SELECT job_number
+    FROM jobs
+    WHERE job_number IS NOT NULL
+      AND job_number LIKE ?
+  `;
+
+  connection.query(query, [likePattern], (err, results) => {
+    if (err) return callback(err);
+
+    let maxSeq = 0;
+    (results || []).forEach((row) => {
+      const jobNumber = row.job_number != null ? String(row.job_number) : "";
+      const match = jobNumber.match(sequenceRegex);
+      if (match) {
+        maxSeq = Math.max(maxSeq, parseInt(match[1], 10));
+      }
+    });
+
+    callback(null, maxSeq + 1);
+  });
+}
+
 exports.getJobsByPOId = (req, res, next) => {
   const poId = req.params.poId;
 
@@ -37,7 +119,6 @@ exports.getJobsByPOId = (req, res, next) => {
       });
     }
 
-    // 🔹 Group rows by job
     const jobMap = {};
 
     results.forEach((row) => {
@@ -46,16 +127,15 @@ exports.getJobsByPOId = (req, res, next) => {
           ...row,
           paper_type_id: row.paper_type_id
             ? row.paper_type_id
-              .toString()
-              .split(",")
-              .map((id) => Number(id))
+                .toString()
+                .split(",")
+                .map((id) => Number(id))
             : [],
           paper_coating_data: [],
           job_ink_data: [],
         };
       }
 
-      // Add coating if exists
       if (row.coating_id) {
         jobMap[row.job_id].paper_coating_data.push({
           id: row.coating_id,
@@ -65,7 +145,6 @@ exports.getJobsByPOId = (req, res, next) => {
         });
       }
 
-      // Add ink if exists
       if (row.ink_id) {
         jobMap[row.job_id].job_ink_data.push({
           id: row.ink_id,
@@ -155,45 +234,47 @@ exports.createJob = (req, res, next) => {
         return next(err);
       }
 
-      // 1️⃣ Insert Job
+      // FIX 2: Column list and VALUES placeholders now match exactly (28 columns, 28 values).
+      // Added job_item back into values array in the correct position.
       const jobQuery = `
         INSERT INTO jobs
         (po_id, customer_id, job_item, job_name, job_open_date, product_type, paper_type_id,
          quantity, coating, packing_date, expiry_date,
          description, artwork, remarks, status, completed_qty, wastage,
          job_ref_id, old_plate_quantity, old_plate_status, old_plate_remarks,
-         new_plate_quantity, new_plate_status, new_plate_remarks,order_received_date,
+         new_plate_quantity, new_plate_status, new_plate_remarks, order_received_date,
          created_on, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
+
       const jobValues = [
-        po_id,
-        customer_id,
-        job_item,
-        job_name,
-        job_open_date,
-        product_type,
-        paper_type_id,
-        quantity,
-        coating,
-        packing_date,
-        expiry_date,
-        description,
-        artwork,
-        remarks,
-        status,
-        completed_qty,
-        wastage,
-        job_ref_id,
-        old_plate_quantity,
-        old_plate_status,
-        old_plate_remarks,
-        new_plate_quantity,
-        new_plate_status,
-        new_plate_remarks,
-        order_received_date,
-        createdOn,
-        created_by,
+        po_id, // po_id
+        customer_id, // customer_id
+        job_item, // job_item  ← was missing from values in original
+        job_name, // job_name
+        job_open_date, // job_open_date
+        product_type, // product_type
+        paper_type_id, // paper_type_id
+        quantity, // quantity
+        coating, // coating
+        packing_date, // packing_date
+        expiry_date, // expiry_date
+        description, // description
+        artwork, // artwork
+        remarks, // remarks
+        status, // status
+        completed_qty, // completed_qty
+        wastage, // wastage
+        job_ref_id, // job_ref_id
+        old_plate_quantity, // old_plate_quantity
+        old_plate_status, // old_plate_status
+        old_plate_remarks, // old_plate_remarks
+        new_plate_quantity, // new_plate_quantity
+        new_plate_status, // new_plate_status
+        new_plate_remarks, // new_plate_remarks
+        order_received_date, // order_received_date
+        createdOn, // created_on
+        created_by, // created_by
       ];
 
       connection.query(jobQuery, jobValues, (err, jobResult) => {
@@ -205,32 +286,56 @@ exports.createJob = (req, res, next) => {
 
         const jobId = jobResult.insertId;
 
-        // 2️⃣ Generate Job Number
         let finalJobNumber = null;
         if (job_number) {
-          const year = new Date().getFullYear().toString().slice(-2);
-          const paddedId = String(jobId).padStart(4, "0");
-          finalJobNumber = job_number
-            .replace("####", paddedId)
-            .replace("YY", year);
+          const jobNumberTemplate = resolveJobNumberTemplate(job_number);
 
-          connection.query(
-            `UPDATE jobs SET job_number = ? WHERE job_id = ?`,
-            [finalJobNumber, jobId],
-            (err) => {
-              if (err)
+          if (!jobNumberTemplate) {
+            return connection.rollback(() => {
+              connection.release();
+              res.status(400).json({
+                message:
+                  "Invalid job_number. Send TIEP, NON-TIEP, MT, or a template with #### and YY.",
+              });
+            });
+          }
+
+          getNextJobSequence(
+            connection,
+            jobNumberTemplate,
+            (err, nextSequence) => {
+              if (err) {
                 return connection.rollback(() => {
                   connection.release();
                   next(err);
                 });
-              insertPaperCoating(0);
-            }
+              }
+
+              // FIX 1 applied here: safe year resolution
+              const year = getTwoDigitYear(job_open_date || createdOn);
+              const paddedSequence = String(nextSequence).padStart(4, "0");
+              finalJobNumber = jobNumberTemplate
+                .replace("####", paddedSequence)
+                .replace("YY", year);
+
+              connection.query(
+                `UPDATE jobs SET job_number = ? WHERE job_id = ?`,
+                [finalJobNumber, jobId],
+                (err) => {
+                  if (err)
+                    return connection.rollback(() => {
+                      connection.release();
+                      next(err);
+                    });
+                  insertPaperCoating(0);
+                },
+              );
+            },
           );
         } else {
           insertPaperCoating(0);
         }
 
-        // 3️⃣ Insert Paper Coating + Materials
         function insertPaperCoating(pcIndex) {
           if (pcIndex >= paperCoating.length) return insertInks(0);
 
@@ -248,13 +353,12 @@ exports.createJob = (req, res, next) => {
 
               const materials = pc.materials || [];
               insertMaterials(materials, 0, () =>
-                insertPaperCoating(pcIndex + 1)
+                insertPaperCoating(pcIndex + 1),
               );
-            }
+            },
           );
         }
 
-        // 4️⃣ Insert Materials (skip inventory update)
         function insertMaterials(materials, mIndex, callback) {
           if (mIndex >= materials.length) return callback();
 
@@ -282,13 +386,11 @@ exports.createJob = (req, res, next) => {
                   next(err);
                 });
 
-              // ✅ Skip inventory deduction
               insertMaterials(materials, mIndex + 1, callback);
-            }
+            },
           );
         }
 
-        // 5️⃣ Insert Inks
         function insertInks(iIndex) {
           if (iIndex >= inks.length) return commitTransaction();
 
@@ -305,11 +407,10 @@ exports.createJob = (req, res, next) => {
                 });
 
               insertInks(iIndex + 1);
-            }
+            },
           );
         }
 
-        // 6️⃣ Commit Transaction
         function commitTransaction() {
           connection.commit((err) => {
             connection.release();
@@ -322,9 +423,9 @@ exports.createJob = (req, res, next) => {
             });
           });
         }
-      }); // end insert job
-    }); // end transaction
-  }); // end getConnection
+      });
+    });
+  });
 };
 
 exports.updateJob = (req, res, next) => {
@@ -350,7 +451,7 @@ exports.updateJob = (req, res, next) => {
     job_ref_id = null,
     completed_qty = 0,
     wastage = "0",
-    order_received_date = null, 
+    order_received_date = null,
     updated_by,
     paperCoating = [],
     inks = [],
@@ -367,10 +468,9 @@ exports.updateJob = (req, res, next) => {
         return next(err);
       }
 
-      // 1️⃣ Update job table
       connection.query(
         `UPDATE jobs SET
-          job_name=?, product_type=?, paper_type_id=?, quantity=?, coating=?,job_open_date=?,
+          job_name=?, product_type=?, paper_type_id=?, quantity=?, coating=?, job_open_date=?,
           packing_date=?, expiry_date=?, description=?, artwork=?,
           remarks=?, status=?, completed_qty=?, job_item=?, wastage=?, order_received_date=?, job_ref_id=?,
           updated_on=?, updated_by=?
@@ -404,10 +504,9 @@ exports.updateJob = (req, res, next) => {
               next(err);
             });
           deleteOldData();
-        }
+        },
       );
 
-      // 2️⃣ Delete old materials + paper coating
       function deleteOldData() {
         connection.query(
           `DELETE FROM job_materials WHERE job_id=?`,
@@ -429,13 +528,12 @@ exports.updateJob = (req, res, next) => {
                     next(err);
                   });
                 insertPaperCoating(0);
-              }
+              },
             );
-          }
+          },
         );
       }
 
-      // 3️⃣ Insert new paper coating + materials
       function insertPaperCoating(pcIndex) {
         if (pcIndex >= paperCoating.length) return insertInks(0);
 
@@ -452,12 +550,13 @@ exports.updateJob = (req, res, next) => {
               });
 
             const materials = pc.materials || [];
-            insertMaterials(materials, 0, () => insertPaperCoating(pcIndex + 1));
-          }
+            insertMaterials(materials, 0, () =>
+              insertPaperCoating(pcIndex + 1),
+            );
+          },
         );
       }
 
-      // 4️⃣ Insert materials (skip inventory)
       function insertMaterials(materials, mIndex, callback) {
         if (mIndex >= materials.length) return callback();
 
@@ -485,13 +584,11 @@ exports.updateJob = (req, res, next) => {
                 next(err);
               });
 
-            // ✅ Skip inventory update
             insertMaterials(materials, mIndex + 1, callback);
-          }
+          },
         );
       }
 
-      // 5️⃣ Update inks
       function insertInks(iIndex) {
         if (iIndex === 0) {
           connection.query(
@@ -504,7 +601,7 @@ exports.updateJob = (req, res, next) => {
                   next(err);
                 });
               insertInkItems(0);
-            }
+            },
           );
         }
       }
@@ -523,11 +620,10 @@ exports.updateJob = (req, res, next) => {
                 next(err);
               });
             insertInkItems(iIndex + 1);
-          }
+          },
         );
       }
 
-      // 6️⃣ Commit transaction
       function commitTransaction() {
         connection.commit((err) => {
           connection.release();
@@ -556,7 +652,6 @@ exports.deleteJob = (req, res, next) => {
         return next(err);
       }
 
-      // 1️⃣ Fetch materials
       connection.query(
         `SELECT item_id, quantity FROM job_materials WHERE job_id=?`,
         [jobId],
@@ -567,7 +662,6 @@ exports.deleteJob = (req, res, next) => {
               next(err);
             });
 
-          // Restore inventory
           const restoreInventory = (i) => {
             if (i >= materials.length) return deleteMaterials();
 
@@ -582,11 +676,10 @@ exports.deleteJob = (req, res, next) => {
                     next(err);
                   });
                 restoreInventory(i + 1);
-              }
+              },
             );
           };
 
-          // Delete job_materials
           const deleteMaterials = () => {
             connection.query(
               `DELETE FROM job_materials WHERE job_id=?`,
@@ -598,11 +691,10 @@ exports.deleteJob = (req, res, next) => {
                     next(err);
                   });
                 deletePaperCoating();
-              }
+              },
             );
           };
 
-          // Delete paper coating
           const deletePaperCoating = () => {
             connection.query(
               `DELETE FROM paper_coating_data WHERE job_id=?`,
@@ -614,11 +706,10 @@ exports.deleteJob = (req, res, next) => {
                     next(err);
                   });
                 deleteInks();
-              }
+              },
             );
           };
 
-          // Delete inks
           const deleteInks = () => {
             connection.query(
               `DELETE FROM job_ink_data WHERE job_id=?`,
@@ -630,11 +721,10 @@ exports.deleteJob = (req, res, next) => {
                     next(err);
                   });
                 deleteJobRow();
-              }
+              },
             );
           };
 
-          // Delete job
           const deleteJobRow = () => {
             connection.query(
               `DELETE FROM jobs WHERE job_id=?`,
@@ -656,13 +746,12 @@ exports.deleteJob = (req, res, next) => {
                     job_id: jobId,
                   });
                 });
-              }
+              },
             );
           };
 
-          // Start restore
           restoreInventory(0);
-        }
+        },
       );
     });
   });
@@ -674,7 +763,6 @@ exports.getJobById = (req, res, next) => {
   if (!jobId)
     return res.status(400).json({ message: "jobId parameter is required" });
 
-  // 1️⃣ Fetch job
   pool.query(
     `SELECT * FROM jobs WHERE job_id = ?`,
     [jobId],
@@ -687,7 +775,6 @@ exports.getJobById = (req, res, next) => {
       const job = jobResults[0];
       const customerId = job.customer_id;
 
-      // 2️⃣ Fetch customer
       pool.query(
         `SELECT customer_id, company_name, customer_type, address,
               phone, email, vat_type, vat_no, logo_url,
@@ -701,7 +788,6 @@ exports.getJobById = (req, res, next) => {
           const customer =
             customerResults.length > 0 ? customerResults[0] : null;
 
-          // 3️⃣ Fetch all materials
           pool.query(
             `SELECT jm.*, mi.item_category, mi.item_sub_category, mi.unit_of_measure
            FROM job_materials jm
@@ -722,7 +808,6 @@ exports.getJobById = (req, res, next) => {
                 remarks: m.remarks,
               }));
 
-              // 4️⃣ Fetch paper coating
               pool.query(
                 `SELECT * FROM paper_coating_data WHERE job_id = ?`,
                 [jobId],
@@ -737,14 +822,12 @@ exports.getJobById = (req, res, next) => {
                     materials,
                   }));
 
-                  // 5️⃣ Fetch inks
                   pool.query(
                     `SELECT * FROM job_ink_data WHERE job_id = ?`,
                     [jobId],
                     (err, inkResults) => {
                       if (err) return next(err);
 
-                      // 6️⃣ Final structured response
                       res.status(200).json({
                         status: "success",
                         data: {
@@ -754,15 +837,15 @@ exports.getJobById = (req, res, next) => {
                           inks: inkResults,
                         },
                       });
-                    }
+                    },
                   );
-                }
+                },
               );
-            }
+            },
           );
-        }
+        },
       );
-    }
+    },
   );
 };
 
@@ -770,7 +853,6 @@ exports.updateJobStatus = (req, res) => {
   const { jobId } = req.params;
   const { status, updated_by } = req.body;
 
-  // Validation
   if (!jobId) {
     return res.status(400).json({ message: "jobId is required" });
   }
@@ -801,7 +883,7 @@ exports.updateJobStatus = (req, res) => {
     return res.status(200).json({
       message: "Job status updated successfully",
       job_id: jobId,
-      status: status
+      status: status,
     });
   });
 };

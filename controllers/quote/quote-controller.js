@@ -1,17 +1,33 @@
 const pool = require("../../sql-connection");
 
 exports.getAllQuotes = (req, res, next) => {
-  const query = `SELECT q.quote_id,q.customer_id,
-  c.company_name,c.address AS customer_address,c.customer_type AS customer_type,
-  c.phone AS customer_phone, c.email AS customer_email,
-  q.type_id, q.delivery_days, q.tax_type_id,
-  q.currency,q.marketing_person, q.contact_person AS contact_person,
-  q.notes, q.status, q.created_on, q.created_by,
-  q.updated_on, q.updated_by
-  FROM \`erp_madhawi_db\`.\`quotations\`
-  q JOIN \`erp_madhawi_db\`.\`customers\` c
-  ON q.customer_id = c.customer_id
-  ORDER BY q.created_on DESC;`;
+  const query = `
+  SELECT 
+    q.quote_id,
+    q.customer_id,
+    c.company_name,
+    c.address AS customer_address,
+    c.customer_type AS customer_type,
+    c.phone AS customer_phone,
+    c.email AS customer_email,
+    q.type_id,
+    q.delivery_days,
+    q.validity_period,
+    q.tax_type_id,
+    q.currency,
+    q.marketing_person,
+    q.contact_person,
+    q.notes,
+    q.status,
+    q.created_on,
+    q.created_by,
+    q.updated_on,
+    q.updated_by
+  FROM quotations q
+  JOIN customers c
+    ON q.customer_id = c.customer_id
+  ORDER BY q.created_on DESC
+`;
 
   pool.query(query, (err, results) => {
     // console.log(results);
@@ -31,36 +47,37 @@ exports.getQuoteById = (req, res, next) => {
   const quoteId = req.params.quoteId;
 
   const query = `
-    SELECT 
-        q.quote_id,
-        q.customer_id,
-        q.type_id,
-        q.delivery_days,
-        q.tax_type_id,
-        q.currency,
-        q.sub_total,
-        q.no_of_items,
-        q.total_without_tax,
-        q.net_total,
-        q.contact_person,
-        q.marketing_person,
-        q.notes,
-        q.created_on,
-        q.created_by,
-        q.updated_on,
-        q.updated_by,
-        q.status,
-        qi.item_id,
-        qi.item_category,
-        qi.item_description,
-        qi.item_qty,
-        qi.item_unit_price,
-        qi.item_unit_discount,
-        qi.item_total_price
-    FROM quotations q
-    LEFT JOIN quote_items qi 
-           ON q.quote_id = qi.quote_id
-    WHERE q.quote_id = ?;
+    SELECT
+    q.quote_id,
+    q.customer_id,
+    q.type_id,
+    q.delivery_days,
+    q.validity_period,
+    q.tax_type_id,
+    q.currency,
+    q.sub_total,
+    q.no_of_items,
+    q.total_without_tax,
+    q.net_total,
+    q.contact_person,
+    q.marketing_person,
+    q.notes,
+    q.created_on,
+    q.created_by,
+    q.updated_on,
+    q.updated_by,
+    q.status,
+    qi.item_id,
+    qi.item_category,
+    qi.item_description,
+    qi.item_qty,
+    qi.item_unit_price,
+    qi.item_unit_discount,
+    qi.item_total_price
+FROM quotations q
+LEFT JOIN quote_items qi
+    ON q.quote_id = qi.quote_id
+WHERE q.quote_id = ?;
   `;
 
   pool.query(query, [quoteId], (err, results) => {
@@ -82,6 +99,7 @@ exports.getQuoteById = (req, res, next) => {
       customer_id: results[0].customer_id,
       type_id: results[0].type_id,
       delivery_days: results[0].delivery_days,
+      validity_period: results[0].validity_period,
       tax_type_id: results[0].tax_type_id,
       currency: results[0].currency,
       sub_total: results[0].sub_total,
@@ -126,6 +144,7 @@ exports.createQuote = (req, res, next) => {
     customer_id,
     type_id,
     delivery_days,
+    validity_period,
     tax_type_id,
     currency,
     sub_total,
@@ -154,17 +173,33 @@ exports.createQuote = (req, res, next) => {
 
       /* ---------- INSERT QUOTATION ---------- */
       const quoteQuery = `
-        INSERT INTO quotations (
-          customer_id, type_id, delivery_days, tax_type_id,
-          currency, sub_total, no_of_items, total_without_tax, net_total,
-          contact_person, marketing_person, notes, created_on, created_by, updated_on, updated_by, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NULL, ?, ?)
-      `;
-
+  INSERT INTO quotations (
+    customer_id,
+    type_id,
+    delivery_days,
+    validity_period,
+    tax_type_id,
+    currency,
+    sub_total,
+    no_of_items,
+    total_without_tax,
+    net_total,
+    contact_person,
+    marketing_person,
+    notes,
+    created_on,
+    created_by,
+    updated_on,
+    updated_by,
+    status
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NULL, ?, ?)
+`;
       const quoteValues = [
         customer_id,
         type_id,
         delivery_days,
+        validity_period,
         tax_type_id,
         currency,
         sub_total,
@@ -253,6 +288,7 @@ exports.updateQuote = (req, res, next) => {
     customer_id,
     type_id,
     delivery_days,
+    validity_period,
     tax_type_id,
     currency,
     sub_total,
@@ -280,30 +316,32 @@ exports.updateQuote = (req, res, next) => {
 
       /* ---------- UPDATE QUOTATION ---------- */
       const updateQuoteQuery = `
-        UPDATE quotations
-        SET 
-          customer_id = ?, 
-          type_id = ?, 
-          delivery_days = ?, 
-          tax_type_id = ?, 
-          currency = ?, 
-          sub_total = ?, 
-          no_of_items = ?, 
-          total_without_tax = ?, 
-          net_total = ?, 
-          contact_person = ?, 
-          marketing_person = ?,
-          notes = ?, 
-          updated_on = NOW(), 
-          updated_by = ?, 
-          status = ?
-        WHERE quote_id = ?
-      `;
+  UPDATE quotations
+  SET
+    customer_id = ?,
+    type_id = ?,
+    delivery_days = ?,
+    validity_period = ?,
+    tax_type_id = ?,
+    currency = ?,
+    sub_total = ?,
+    no_of_items = ?,
+    total_without_tax = ?,
+    net_total = ?,
+    contact_person = ?,
+    marketing_person = ?,
+    notes = ?,
+    updated_on = NOW(),
+    updated_by = ?,
+    status = ?
+  WHERE quote_id = ?
+`;
 
       const updateQuoteValues = [
         customer_id,
         type_id,
         delivery_days,
+        validity_period,
         tax_type_id,
         currency,
         sub_total,
