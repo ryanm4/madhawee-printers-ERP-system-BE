@@ -1,6 +1,8 @@
 const express = require("express");
 const reportRouter = express.Router();
 const reportController = require("../../controllers/reports/report-controller");
+const customReportController = require("../../controllers/reports/material-reports-controller");
+const salesReportController = require("../../controllers/reports/sales-report-controller");
 
 /**
  * @swagger
@@ -111,5 +113,9 @@ reportRouter.route("/dashboard/insights").post(reportController.getDashboardInsi
 
 
 reportRouter.route("/summary").post(reportController.getAllDataReports);
+
+reportRouter.route("/custom/inventory").post(customReportController.generateInventoryReport);
+
+reportRouter.route("/custom/sales").post(salesReportController.generateSalesReport);
 
 module.exports = reportRouter;
