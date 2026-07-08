@@ -24,7 +24,7 @@ exports.getAllIssueNotesWithItems = (req, res) => {
 
     const notesMap = new Map();
 
-    results.forEach(row => {
+    results.forEach((row) => {
       const noteId = row.note_id;
 
       if (!notesMap.has(noteId)) {
@@ -34,7 +34,7 @@ exports.getAllIssueNotesWithItems = (req, res) => {
           date: row.date,
           remarks: row.remarks,
           collector_name: row.collector_name,
-          items: []
+          items: [],
         });
       }
       if (row.item_id) {
@@ -42,7 +42,7 @@ exports.getAllIssueNotesWithItems = (req, res) => {
           id: row.item_id,
           issue_note_id: row.issue_note_id,
           item_name: row.item_name,
-          quantity: row.quantity
+          quantity: row.quantity,
         });
       }
     });
@@ -86,16 +86,16 @@ exports.getIssueNoteByIdWithItems = (req, res) => {
       date: results[0].date,
       remarks: results[0].remarks,
       collector_name: results[0].collector_name,
-      items: []
+      items: [],
     };
 
-    results.forEach(row => {
+    results.forEach((row) => {
       if (row.item_id) {
         note.items.push({
           id: row.item_id,
           issue_note_id: row.issue_note_id,
           item_name: row.item_name,
-          quantity: row.quantity
+          quantity: row.quantity,
         });
       }
     });
@@ -108,24 +108,48 @@ exports.getIssueNoteByIdWithItems = (req, res) => {
 exports.createIssueNoteWithItems = (req, res) => {
   const { job_id, date, remarks, collector_name, items, created_by } = req.body;
 
-  if (!items || !Array.isArray(items)) {
-    return res.status(400).json({ message: "Items must be an array" });
+  console.log("1. Controller started");
+  console.log("Request:", req.body);
+
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({
+      message: "Items must be a non-empty array",
+    });
   }
 
   pool.getConnection((err, connection) => {
     if (err) {
-      return res.status(500).json({ message: "DB connection error", error: err });
+      return res.status(500).json({
+        message: "Database connection error",
+        error: err,
+      });
     }
 
-    connection.beginTransaction(err => {
+    console.log("DB connection acquired");
+
+    connection.beginTransaction((err) => {
       if (err) {
-        return res.status(500).json({ message: "Transaction error", error: err });
+        connection.release();
+
+        return res.status(500).json({
+          message: "Transaction start failed",
+          error: err,
+        });
       }
 
-      // 1️⃣ Insert issue note
+      console.log("Transaction started");
+
+      // 1. Create Issue Note
       const noteQuery = `
-        INSERT INTO erp_madhawi_db.\`issue-notes\` 
-        (job_id, date, remarks, collector_name, created_on, created_by)
+        INSERT INTO erp_madhawi_db.\`issue-notes\`
+        (
+          job_id,
+          date,
+          remarks,
+          collector_name,
+          created_on,
+          created_by
+        )
         VALUES (?, ?, ?, ?, NOW(), ?)
       `;
 
@@ -134,78 +158,191 @@ exports.createIssueNoteWithItems = (req, res) => {
         [job_id, date, remarks, collector_name, created_by],
         (err, noteResult) => {
           if (err) {
-            return connection.rollback(() =>
-              res.status(500).json({ message: "DB error", error: err })
-            );
-          }
+            return connection.rollback(() => {
+              connection.release();
 
-          const noteId = noteResult.insertId;
-
-          // 2️⃣ Insert items
-          const itemQuery = `
-            INSERT INTO erp_madhawi_db.\`issue_note-items\`
-            (issue_note_id, item_name, quantity)
-            VALUES ?
-          `;
-
-          const itemValues = items.map(i => [
-            noteId,
-            i.item_name,
-            i.quantity
-          ]);
-
-          connection.query(itemQuery, [itemValues], err => {
-            if (err) {
-              return connection.rollback(() =>
-                res.status(500).json({ message: "DB error", error: err })
-              );
-            }
-
-            // 3️⃣ Update inventory
-            const inventoryUpdates = items.map(i => {
-              return new Promise((resolve, reject) => {
-                const updateQuery = `
-                  UPDATE erp_madhawi_db.\`main_inventory\`
-                  SET quantity = quantity - ?, updated_on = NOW(), updated_by = ?
-                  WHERE CONCAT(IFNULL(item_sub_category, ''), ' ', IFNULL(item_name, ''), ' ', IFNULL(size, '')) = ?
-                `;
-
-                connection.query(
-                  updateQuery,
-                  [i.quantity, created_by, i.item_name],
-                  (err, result) => {
-                    if (err) return reject(err);
-                    resolve(result);
-                  }
-                );
+              res.status(500).json({
+                message: "Issue note creation failed",
+                error: err,
               });
             });
+          }
 
-            Promise.all(inventoryUpdates)
-              .then(() => {
-                connection.commit(err => {
-                  if (err) {
-                    return connection.rollback(() =>
-                      res.status(500).json({ message: "Commit error", error: err })
+          const issueNoteId = noteResult.insertId;
+
+          console.log("Issue note created:", issueNoteId);
+
+          // 2. Get inventory details
+          const inventoryChecks = items.map((item) => {
+            return new Promise((resolve, reject) => {
+              const stockQuery = `
+                SELECT
+                  item_id,
+                  item_name,
+                  quantity
+                FROM erp_madhawi_db.main_inventory
+                WHERE item_id = ?
+              `;
+
+              connection.query(stockQuery, [item.item_id], (err, rows) => {
+                if (err) {
+                  return reject(err);
+                }
+
+                if (rows.length === 0) {
+                  return reject(new Error(`Item ID ${item.item_id} not found`));
+                }
+
+                const inventoryItem = rows[0];
+
+                if (Number(inventoryItem.quantity) < Number(item.quantity)) {
+                  return reject(
+                    new Error(
+                      `Insufficient stock for ${inventoryItem.item_name}. Available: ${inventoryItem.quantity}`,
+                    ),
+                  );
+                }
+
+                resolve({
+                  item_id: inventoryItem.item_id,
+                  item_name: inventoryItem.item_name,
+                  quantity: Number(item.quantity),
+                });
+              });
+            });
+          });
+
+          Promise.all(inventoryChecks)
+
+            .then((inventoryItems) => {
+              console.log("Inventory validated:", inventoryItems);
+
+              // 3. Insert issue note items
+
+              const itemValues = inventoryItems.map((item) => [
+                issueNoteId,
+                item.item_id,
+                item.item_name,
+                item.quantity,
+              ]);
+
+              const insertItemsQuery = `
+                INSERT INTO erp_madhawi_db.\`issue_note-items\`
+                (
+                  issue_note_id,
+                  item_id,
+                  item_name,
+                  quantity
+                )
+                VALUES ?
+              `;
+
+              connection.query(insertItemsQuery, [itemValues], (err) => {
+                if (err) {
+                  return connection.rollback(() => {
+                    connection.release();
+
+                    res.status(500).json({
+                      message: "Issue items insert failed",
+                      error: err,
+                    });
+                  });
+                }
+
+                // 4. Deduct inventory
+
+                const updates = inventoryItems.map((item) => {
+                  return new Promise((resolve, reject) => {
+                    const updateQuery = `
+                        UPDATE erp_madhawi_db.main_inventory
+                        SET
+                          quantity = quantity - ?,
+                          updated_on = NOW(),
+                          updated_by = ?
+                        WHERE item_id = ?
+                      `;
+
+                    connection.query(
+                      updateQuery,
+                      [item.quantity, created_by, item.item_id],
+                      (err, result) => {
+                        if (err) {
+                          return reject(err);
+                        }
+
+                        console.log(
+                          "Inventory updated:",
+                          item.item_id,
+                          result.affectedRows,
+                        );
+
+                        if (result.affectedRows === 0) {
+                          return reject(
+                            new Error(
+                              `Inventory update failed for item ${item.item_id}`,
+                            ),
+                          );
+                        }
+
+                        resolve();
+                      },
                     );
-                  }
-
-                  res.status(201).json({
-                    message: "Issue note with items created and inventory updated",
-                    id: noteId
                   });
                 });
-              })
-              .catch(err => {
-                connection.rollback(() =>
-                  res.status(500).json({
-                    message: "Inventory update failed",
-                    error: err
+
+                Promise.all(updates)
+
+                  .then(() => {
+                    // 5. Commit transaction
+
+                    connection.commit((err) => {
+                      if (err) {
+                        return connection.rollback(() => {
+                          connection.release();
+
+                          res.status(500).json({
+                            message: "Commit failed",
+                            error: err,
+                          });
+                        });
+                      }
+
+                      console.log("Transaction committed");
+
+                      connection.release();
+
+                      res.status(201).json({
+                        message:
+                          "Issue note created and inventory deducted successfully",
+
+                        issue_note_id: issueNoteId,
+                      });
+                    });
                   })
-                );
+
+                  .catch((err) => {
+                    connection.rollback(() => {
+                      connection.release();
+
+                      res.status(500).json({
+                        message: "Inventory update failed",
+                        error: err.message,
+                      });
+                    });
+                  });
               });
-          });
-        }
+            })
+
+            .catch((err) => {
+              connection.rollback(() => {
+                connection.release();
+
+                res.status(400).json({
+                  message: err.message,
+                });
+              });
+            });
+        },
       );
     });
   });
@@ -222,12 +359,16 @@ exports.updateIssueNoteWithItems = (req, res) => {
 
   pool.getConnection((err, connection) => {
     if (err) {
-      return res.status(500).json({ message: "DB connection error", error: err });
+      return res
+        .status(500)
+        .json({ message: "DB connection error", error: err });
     }
 
-    connection.beginTransaction(err => {
+    connection.beginTransaction((err) => {
       if (err) {
-        return res.status(500).json({ message: "Transaction error", error: err });
+        return res
+          .status(500)
+          .json({ message: "Transaction error", error: err });
       }
 
       // 1️⃣ Get old items
@@ -240,7 +381,7 @@ exports.updateIssueNoteWithItems = (req, res) => {
       connection.query(selectOldItems, [id], (err, oldItems) => {
         if (err) {
           return connection.rollback(() =>
-            res.status(500).json({ message: "DB error", error: err })
+            res.status(500).json({ message: "DB error", error: err }),
           );
         }
 
@@ -257,13 +398,13 @@ exports.updateIssueNoteWithItems = (req, res) => {
           (err, result) => {
             if (err) {
               return connection.rollback(() =>
-                res.status(500).json({ message: "DB error", error: err })
+                res.status(500).json({ message: "DB error", error: err }),
               );
             }
 
             if (result.affectedRows === 0) {
               return connection.rollback(() =>
-                res.status(404).json({ message: "Issue note not found" })
+                res.status(404).json({ message: "Issue note not found" }),
               );
             }
 
@@ -271,10 +412,10 @@ exports.updateIssueNoteWithItems = (req, res) => {
             connection.query(
               "DELETE FROM erp_madhawi_db.`issue_note-items` WHERE issue_note_id = ?",
               [id],
-              err => {
+              (err) => {
                 if (err) {
                   return connection.rollback(() =>
-                    res.status(500).json({ message: "DB error", error: err })
+                    res.status(500).json({ message: "DB error", error: err }),
                   );
                 }
 
@@ -285,16 +426,16 @@ exports.updateIssueNoteWithItems = (req, res) => {
                   VALUES ?
                 `;
 
-                const itemValues = items.map(i => [
+                const itemValues = items.map((i) => [
                   id,
                   i.item_name,
-                  i.quantity
+                  i.quantity,
                 ]);
 
-                connection.query(itemQuery, [itemValues], async err => {
+                connection.query(itemQuery, [itemValues], async (err) => {
                   if (err) {
                     return connection.rollback(() =>
-                      res.status(500).json({ message: "DB error", error: err })
+                      res.status(500).json({ message: "DB error", error: err }),
                     );
                   }
 
@@ -307,7 +448,7 @@ exports.updateIssueNoteWithItems = (req, res) => {
                            SET quantity = quantity + ?, updated_on = NOW(), updated_by = ?
                            WHERE CONCAT(IFNULL(item_sub_category, ''), ' ', IFNULL(item_name, ''), ' ', IFNULL(size, '')) = ?`,
                           [old.quantity, updated_by, old.item_name],
-                          err => (err ? reject(err) : resolve())
+                          (err) => (err ? reject(err) : resolve()),
                         );
                       });
                     }
@@ -320,35 +461,36 @@ exports.updateIssueNoteWithItems = (req, res) => {
                            SET quantity = quantity - ?, updated_on = NOW(), updated_by = ?
                            WHERE CONCAT(IFNULL(item_sub_category, ''), ' ', IFNULL(item_name, ''), ' ', IFNULL(size, '')) = ?`,
                           [ni.quantity, updated_by, ni.item_name],
-                          err => (err ? reject(err) : resolve())
+                          (err) => (err ? reject(err) : resolve()),
                         );
                       });
                     }
 
-                    connection.commit(err => {
+                    connection.commit((err) => {
                       if (err) {
                         return connection.rollback(() =>
-                          res.status(500).json({ message: "Commit error", error: err })
+                          res
+                            .status(500)
+                            .json({ message: "Commit error", error: err }),
                         );
                       }
 
                       res.json({
-                        message: "Issue note updated and inventory adjusted"
+                        message: "Issue note updated and inventory adjusted",
                       });
                     });
-
                   } catch (invErr) {
                     connection.rollback(() =>
                       res.status(500).json({
                         message: "Inventory adjustment failed",
-                        error: invErr
-                      })
+                        error: invErr,
+                      }),
                     );
                   }
                 });
-              }
+              },
             );
-          }
+          },
         );
       });
     });
@@ -361,21 +503,27 @@ exports.deleteIssueNoteWithItems = (req, res) => {
 
   pool.getConnection((err, connection) => {
     if (err) {
-      return res.status(500).json({ message: "DB connection error", error: err });
+      return res
+        .status(500)
+        .json({ message: "DB connection error", error: err });
     }
 
-    connection.beginTransaction(err => {
+    connection.beginTransaction((err) => {
       if (err) {
-        return res.status(500).json({ message: "Transaction error", error: err });
+        return res
+          .status(500)
+          .json({ message: "Transaction error", error: err });
       }
 
       const deleteItemsQuery =
         "DELETE FROM erp_madhawi_db.`issue_note-items` WHERE issue_note_id = ?";
 
-      connection.query(deleteItemsQuery, [id], err => {
+      connection.query(deleteItemsQuery, [id], (err) => {
         if (err) {
           return connection.rollback(() =>
-            res.status(500).json({ message: "DB error deleting items", error: err })
+            res
+              .status(500)
+              .json({ message: "DB error deleting items", error: err }),
           );
         }
 
@@ -385,25 +533,27 @@ exports.deleteIssueNoteWithItems = (req, res) => {
         connection.query(deleteNoteQuery, [id], (err, result) => {
           if (err) {
             return connection.rollback(() =>
-              res.status(500).json({ message: "DB error deleting note", error: err })
+              res
+                .status(500)
+                .json({ message: "DB error deleting note", error: err }),
             );
           }
 
           if (result.affectedRows === 0) {
             return connection.rollback(() =>
-              res.status(404).json({ message: "Issue note not found" })
+              res.status(404).json({ message: "Issue note not found" }),
             );
           }
 
-          connection.commit(err => {
+          connection.commit((err) => {
             if (err) {
               return connection.rollback(() =>
-                res.status(500).json({ message: "Commit error", error: err })
+                res.status(500).json({ message: "Commit error", error: err }),
               );
             }
 
             res.json({
-              message: "Issue note and all items deleted successfully"
+              message: "Issue note and all items deleted successfully",
             });
           });
         });
