@@ -446,7 +446,7 @@ exports.updateIssueNoteWithItems = (req, res) => {
                         connection.query(
                           `UPDATE erp_madhawi_db.\`main_inventory\`
                            SET quantity = quantity + ?, updated_on = NOW(), updated_by = ?
-                           WHERE item_name = ?`,
+                           WHERE CONCAT(IFNULL(item_sub_category, ''), ' ', IFNULL(item_name, ''), ' ', IFNULL(size, '')) = ?`,
                           [old.quantity, updated_by, old.item_name],
                           (err) => (err ? reject(err) : resolve()),
                         );
@@ -459,7 +459,7 @@ exports.updateIssueNoteWithItems = (req, res) => {
                         connection.query(
                           `UPDATE erp_madhawi_db.\`main_inventory\`
                            SET quantity = quantity - ?, updated_on = NOW(), updated_by = ?
-                           WHERE item_name = ?`,
+                           WHERE CONCAT(IFNULL(item_sub_category, ''), ' ', IFNULL(item_name, ''), ' ', IFNULL(size, '')) = ?`,
                           [ni.quantity, updated_by, ni.item_name],
                           (err) => (err ? reject(err) : resolve()),
                         );
