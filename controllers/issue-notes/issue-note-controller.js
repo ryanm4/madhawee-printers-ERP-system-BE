@@ -198,8 +198,8 @@ exports.createIssueNoteWithItems = (req, res) => {
                 if (Number(inventoryItem.quantity) < Number(item.quantity)) {
                   return reject(
                     new Error(
-                      `Insufficient stock for ${inventoryItem.item_name}. Available: ${inventoryItem.quantity}`,
-                    ),
+                      `Insufficient stock for ${inventoryItem.item_name}. Available: ${inventoryItem.quantity}`
+                    )
                   );
                 }
 
@@ -273,19 +273,19 @@ exports.createIssueNoteWithItems = (req, res) => {
                         console.log(
                           "Inventory updated:",
                           item.item_id,
-                          result.affectedRows,
+                          result.affectedRows
                         );
 
                         if (result.affectedRows === 0) {
                           return reject(
                             new Error(
-                              `Inventory update failed for item ${item.item_id}`,
-                            ),
+                              `Inventory update failed for item ${item.item_id}`
+                            )
                           );
                         }
 
                         resolve();
-                      },
+                      }
                     );
                   });
                 });
@@ -342,7 +342,7 @@ exports.createIssueNoteWithItems = (req, res) => {
                 });
               });
             });
-        },
+        }
       );
     });
   });
@@ -381,7 +381,7 @@ exports.updateIssueNoteWithItems = (req, res) => {
       connection.query(selectOldItems, [id], (err, oldItems) => {
         if (err) {
           return connection.rollback(() =>
-            res.status(500).json({ message: "DB error", error: err }),
+            res.status(500).json({ message: "DB error", error: err })
           );
         }
 
@@ -398,13 +398,13 @@ exports.updateIssueNoteWithItems = (req, res) => {
           (err, result) => {
             if (err) {
               return connection.rollback(() =>
-                res.status(500).json({ message: "DB error", error: err }),
+                res.status(500).json({ message: "DB error", error: err })
               );
             }
 
             if (result.affectedRows === 0) {
               return connection.rollback(() =>
-                res.status(404).json({ message: "Issue note not found" }),
+                res.status(404).json({ message: "Issue note not found" })
               );
             }
 
@@ -415,7 +415,7 @@ exports.updateIssueNoteWithItems = (req, res) => {
               (err) => {
                 if (err) {
                   return connection.rollback(() =>
-                    res.status(500).json({ message: "DB error", error: err }),
+                    res.status(500).json({ message: "DB error", error: err })
                   );
                 }
 
@@ -435,7 +435,7 @@ exports.updateIssueNoteWithItems = (req, res) => {
                 connection.query(itemQuery, [itemValues], async (err) => {
                   if (err) {
                     return connection.rollback(() =>
-                      res.status(500).json({ message: "DB error", error: err }),
+                      res.status(500).json({ message: "DB error", error: err })
                     );
                   }
 
@@ -448,7 +448,7 @@ exports.updateIssueNoteWithItems = (req, res) => {
                            SET quantity = quantity + ?, updated_on = NOW(), updated_by = ?
                            WHERE CONCAT(IFNULL(item_sub_category, ''), ' ', IFNULL(item_name, ''), ' ', IFNULL(size, '')) = ?`,
                           [old.quantity, updated_by, old.item_name],
-                          (err) => (err ? reject(err) : resolve()),
+                          (err) => (err ? reject(err) : resolve())
                         );
                       });
                     }
@@ -461,7 +461,7 @@ exports.updateIssueNoteWithItems = (req, res) => {
                            SET quantity = quantity - ?, updated_on = NOW(), updated_by = ?
                            WHERE CONCAT(IFNULL(item_sub_category, ''), ' ', IFNULL(item_name, ''), ' ', IFNULL(size, '')) = ?`,
                           [ni.quantity, updated_by, ni.item_name],
-                          (err) => (err ? reject(err) : resolve()),
+                          (err) => (err ? reject(err) : resolve())
                         );
                       });
                     }
@@ -471,7 +471,7 @@ exports.updateIssueNoteWithItems = (req, res) => {
                         return connection.rollback(() =>
                           res
                             .status(500)
-                            .json({ message: "Commit error", error: err }),
+                            .json({ message: "Commit error", error: err })
                         );
                       }
 
@@ -484,13 +484,13 @@ exports.updateIssueNoteWithItems = (req, res) => {
                       res.status(500).json({
                         message: "Inventory adjustment failed",
                         error: invErr,
-                      }),
+                      })
                     );
                   }
                 });
-              },
+              }
             );
-          },
+          }
         );
       });
     });
@@ -523,7 +523,7 @@ exports.deleteIssueNoteWithItems = (req, res) => {
           return connection.rollback(() =>
             res
               .status(500)
-              .json({ message: "DB error deleting items", error: err }),
+              .json({ message: "DB error deleting items", error: err })
           );
         }
 
@@ -535,20 +535,20 @@ exports.deleteIssueNoteWithItems = (req, res) => {
             return connection.rollback(() =>
               res
                 .status(500)
-                .json({ message: "DB error deleting note", error: err }),
+                .json({ message: "DB error deleting note", error: err })
             );
           }
 
           if (result.affectedRows === 0) {
             return connection.rollback(() =>
-              res.status(404).json({ message: "Issue note not found" }),
+              res.status(404).json({ message: "Issue note not found" })
             );
           }
 
           connection.commit((err) => {
             if (err) {
               return connection.rollback(() =>
-                res.status(500).json({ message: "Commit error", error: err }),
+                res.status(500).json({ message: "Commit error", error: err })
               );
             }
 
