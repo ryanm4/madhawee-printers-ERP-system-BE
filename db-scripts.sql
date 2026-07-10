@@ -292,6 +292,7 @@ CREATE TABLE
   `erp_madhawi_db`.`issue_note-items` (
     `id` INT NOT NULL AUTO_INCREMENT,
     `issue_note_id` INT NULL,
+    `item_id` INT NULL,
     `item_name` VARCHAR(45) NULL,
     `quantity` DECIMAL(10, 2) NULL,
     PRIMARY KEY (`id`)
