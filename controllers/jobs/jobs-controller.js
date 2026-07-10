@@ -55,7 +55,7 @@ function getNextJobSequence(connection, template, callback) {
 
   if (!sequenceRegex) {
     return callback(
-      new Error("Invalid job_number template. Use #### for sequence."),
+      new Error("Invalid job_number template. Use #### for sequence.")
     );
   }
 
@@ -328,9 +328,9 @@ exports.createJob = (req, res, next) => {
                       next(err);
                     });
                   insertPaperCoating(0);
-                },
+                }
               );
-            },
+            }
           );
         } else {
           insertPaperCoating(0);
@@ -353,9 +353,9 @@ exports.createJob = (req, res, next) => {
 
               const materials = pc.materials || [];
               insertMaterials(materials, 0, () =>
-                insertPaperCoating(pcIndex + 1),
+                insertPaperCoating(pcIndex + 1)
               );
-            },
+            }
           );
         }
 
@@ -387,7 +387,7 @@ exports.createJob = (req, res, next) => {
                 });
 
               insertMaterials(materials, mIndex + 1, callback);
-            },
+            }
           );
         }
 
@@ -407,7 +407,7 @@ exports.createJob = (req, res, next) => {
                 });
 
               insertInks(iIndex + 1);
-            },
+            }
           );
         }
 
@@ -504,7 +504,7 @@ exports.updateJob = (req, res, next) => {
               next(err);
             });
           deleteOldData();
-        },
+        }
       );
 
       function deleteOldData() {
@@ -528,9 +528,9 @@ exports.updateJob = (req, res, next) => {
                     next(err);
                   });
                 insertPaperCoating(0);
-              },
+              }
             );
-          },
+          }
         );
       }
 
@@ -551,9 +551,9 @@ exports.updateJob = (req, res, next) => {
 
             const materials = pc.materials || [];
             insertMaterials(materials, 0, () =>
-              insertPaperCoating(pcIndex + 1),
+              insertPaperCoating(pcIndex + 1)
             );
-          },
+          }
         );
       }
 
@@ -585,7 +585,7 @@ exports.updateJob = (req, res, next) => {
               });
 
             insertMaterials(materials, mIndex + 1, callback);
-          },
+          }
         );
       }
 
@@ -601,7 +601,7 @@ exports.updateJob = (req, res, next) => {
                   next(err);
                 });
               insertInkItems(0);
-            },
+            }
           );
         }
       }
@@ -620,7 +620,7 @@ exports.updateJob = (req, res, next) => {
                 next(err);
               });
             insertInkItems(iIndex + 1);
-          },
+          }
         );
       }
 
@@ -676,7 +676,7 @@ exports.deleteJob = (req, res, next) => {
                     next(err);
                   });
                 restoreInventory(i + 1);
-              },
+              }
             );
           };
 
@@ -691,7 +691,7 @@ exports.deleteJob = (req, res, next) => {
                     next(err);
                   });
                 deletePaperCoating();
-              },
+              }
             );
           };
 
@@ -706,7 +706,7 @@ exports.deleteJob = (req, res, next) => {
                     next(err);
                   });
                 deleteInks();
-              },
+              }
             );
           };
 
@@ -721,7 +721,7 @@ exports.deleteJob = (req, res, next) => {
                     next(err);
                   });
                 deleteJobRow();
-              },
+              }
             );
           };
 
@@ -746,12 +746,12 @@ exports.deleteJob = (req, res, next) => {
                     job_id: jobId,
                   });
                 });
-              },
+              }
             );
           };
 
           restoreInventory(0);
-        },
+        }
       );
     });
   });
@@ -823,7 +823,13 @@ exports.getJobById = (req, res, next) => {
                   }));
 
                   pool.query(
-                    `SELECT * FROM job_ink_data WHERE job_id = ?`,
+                    `SELECT
+    j.*,
+    i.item_id
+FROM job_ink_data j
+LEFT JOIN main_inventory i
+    ON LOWER(TRIM(j.ink)) = LOWER(TRIM(i.item_name))
+WHERE j.job_id = ?;`,
                     [jobId],
                     (err, inkResults) => {
                       if (err) return next(err);
@@ -837,15 +843,15 @@ exports.getJobById = (req, res, next) => {
                           inks: inkResults,
                         },
                       });
-                    },
+                    }
                   );
-                },
+                }
               );
-            },
+            }
           );
-        },
+        }
       );
-    },
+    }
   );
 };
 
