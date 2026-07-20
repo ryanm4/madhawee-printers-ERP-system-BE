@@ -254,6 +254,38 @@ exports.generateInventoryReport = async (req, res) => {
         `;
         params = [from_date, to_date];
         break;
+
+      case "GRN_VALUE_WEEKLY":
+        query = `
+          SELECT
+              YEARWEEK(grn.received_date, 1) AS grn_week,
+              MIN(DATE(grn.received_date)) AS week_start_date,
+              MAX(DATE(grn.received_date)) AS week_end_date,
+              SUM(gi.quantity) AS total_qty,
+              SUM(gi.amount) AS total_value
+          FROM goods_receive_notes grn
+          INNER JOIN grn_items gi ON gi.grn_no = grn.id
+          WHERE DATE(grn.received_date) BETWEEN ? AND ?
+          GROUP BY YEARWEEK(grn.received_date, 1)
+          ORDER BY grn_week ASC
+        `;
+        params = [from_date, to_date];
+        break;
+
+      case "GRN_VALUE_MONTHLY":
+        query = `
+          SELECT
+              DATE_FORMAT(grn.received_date, '%Y-%m') AS grn_month,
+              SUM(gi.quantity) AS total_qty,
+              SUM(gi.amount) AS total_value
+          FROM goods_receive_notes grn
+          INNER JOIN grn_items gi ON gi.grn_no = grn.id
+          WHERE DATE(grn.received_date) BETWEEN ? AND ?
+          GROUP BY DATE_FORMAT(grn.received_date, '%Y-%m')
+          ORDER BY grn_month ASC
+        `;
+        params = [from_date, to_date];
+        break;
       /**
       * ==========================================================
       * Total material usage across jobs
