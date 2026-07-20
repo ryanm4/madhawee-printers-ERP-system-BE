@@ -22,6 +22,10 @@ exports.generateReport = async (req, res) => {
     const dateColumns = {
       QUOTATION_SUMMARY: 'q.created_on',
       QUOTE_TO_PO_CONVERSION: 'q.created_on',
+      QUOTATION_BY_CUSTOMER: 'q.created_on',
+      QUOTATION_BY_SALESPERSON: 'q.created_on',
+      QUOTATION_WEEKLY: 'q.created_on',
+      QUOTATION_MONTHLY: 'q.created_on',
       JOB_PRODUCTION: 'j.job_open_date',
       INVENTORY_HEALTH: null,
       DISPATCH_INSIGHTS: 'd.dispatch_date',
@@ -49,9 +53,73 @@ exports.generateReport = async (req, res) => {
         query = `
           SELECT 
             COUNT(DISTINCT q.quote_id) AS total_quotes,
-            COUNT(DISTINCT po.po_id) AS converted_pos
+            COUNT(DISTINCT po.po_id) AS converted_pos,
+            ROUND(
+              COUNT(DISTINCT po.po_id) / NULLIF(COUNT(DISTINCT q.quote_id), 0) * 100,
+              2
+            ) AS conversion_rate_pct
           FROM quotations q
           LEFT JOIN purchase_orders po ON po.quote_id = q.quote_id
+          WHERE 1=1
+        `;
+        break;
+
+      case 'QUOTATION_BY_CUSTOMER':
+        baseAlias = 'q';
+        query = `
+          SELECT
+            c.customer_id,
+            c.company_name,
+            COUNT(q.quote_id)                                        AS total_quotes,
+            SUM(CASE WHEN q.status = 'ACCEPTED' THEN 1 ELSE 0 END)  AS approved_quotes,
+            SUM(CASE WHEN q.status = 'REJECTED' THEN 1 ELSE 0 END)  AS rejected_quotes,
+            SUM(CAST(q.net_total AS DECIMAL(15,2)))                  AS total_value
+          FROM quotations q
+          LEFT JOIN customers c ON c.customer_id = q.customer_id
+          WHERE 1=1
+        `;
+        break;
+
+      case 'QUOTATION_BY_SALESPERSON':
+        baseAlias = 'q';
+        query = `
+          SELECT
+            q.created_by                                             AS salesperson,
+            COUNT(q.quote_id)                                        AS total_quotes,
+            SUM(CASE WHEN q.status = 'ACCEPTED' THEN 1 ELSE 0 END)  AS approved_quotes,
+            SUM(CASE WHEN q.status = 'REJECTED' THEN 1 ELSE 0 END)  AS rejected_quotes,
+            SUM(CAST(q.net_total AS DECIMAL(15,2)))                  AS total_value
+          FROM quotations q
+          WHERE 1=1
+        `;
+        break;
+
+      case 'QUOTATION_WEEKLY':
+        baseAlias = 'q';
+        query = `
+          SELECT
+            YEARWEEK(q.created_on, 1)                                AS sales_week,
+            MIN(DATE(q.created_on))                                  AS week_start_date,
+            MAX(DATE(q.created_on))                                  AS week_end_date,
+            COUNT(q.quote_id)                                        AS total_quotes,
+            SUM(CASE WHEN q.status = 'ACCEPTED' THEN 1 ELSE 0 END)  AS approved_quotes,
+            SUM(CASE WHEN q.status = 'REJECTED' THEN 1 ELSE 0 END)  AS rejected_quotes,
+            SUM(CAST(q.net_total AS DECIMAL(15,2)))                  AS total_value
+          FROM quotations q
+          WHERE 1=1
+        `;
+        break;
+
+      case 'QUOTATION_MONTHLY':
+        baseAlias = 'q';
+        query = `
+          SELECT
+            DATE_FORMAT(q.created_on, '%Y-%m')                       AS sales_month,
+            COUNT(q.quote_id)                                        AS total_quotes,
+            SUM(CASE WHEN q.status = 'ACCEPTED' THEN 1 ELSE 0 END)  AS approved_quotes,
+            SUM(CASE WHEN q.status = 'REJECTED' THEN 1 ELSE 0 END)  AS rejected_quotes,
+            SUM(CAST(q.net_total AS DECIMAL(15,2)))                  AS total_value
+          FROM quotations q
           WHERE 1=1
         `;
         break;
@@ -139,6 +207,34 @@ exports.generateReport = async (req, res) => {
       query += `
         GROUP BY q.status
         ORDER BY first_quote
+      `;
+    }
+
+    if (reportType === 'QUOTATION_BY_CUSTOMER') {
+      query += `
+        GROUP BY c.customer_id, c.company_name
+        ORDER BY total_value DESC
+      `;
+    }
+
+    if (reportType === 'QUOTATION_BY_SALESPERSON') {
+      query += `
+        GROUP BY q.created_by
+        ORDER BY total_value DESC
+      `;
+    }
+
+    if (reportType === 'QUOTATION_WEEKLY') {
+      query += `
+        GROUP BY YEARWEEK(q.created_on, 1)
+        ORDER BY sales_week ASC
+      `;
+    }
+
+    if (reportType === 'QUOTATION_MONTHLY') {
+      query += `
+        GROUP BY DATE_FORMAT(q.created_on, '%Y-%m')
+        ORDER BY sales_month ASC
       `;
     }
 
