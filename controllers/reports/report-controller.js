@@ -326,6 +326,34 @@ exports.getDashboardInsights = (req, res) => {
         }
       });
 
+      /* ================= REVENUE TREND (MONTHLY) ================= */
+      const trendQuery = `
+        SELECT
+          DATE_FORMAT(po.created_on, '%Y-%m') AS month,
+          po.currency,
+          IFNULL(
+            SUM(
+              CAST(pod.quantity AS DECIMAL(10,2)) *
+              CAST(pod.price AS DECIMAL(10,2))
+            ),
+            0
+          ) AS monthly_revenue
+        FROM purchase_orders po
+        LEFT JOIN po_items_details pod ON pod.po_id = po.po_id
+        WHERE po.created_on BETWEEN ? AND ?
+        GROUP BY DATE_FORMAT(po.created_on, '%Y-%m'), po.currency
+        ORDER BY month ASC
+      `;
+
+      pool.query(trendQuery, [fromDate, toDate], (err, trendData) => {
+        if (err) return res.status(500).json(err);
+
+        const formattedTrend = trendData.map(t => ({
+          month: t.month,
+          currency: t.currency,
+          revenue: Number(t.monthly_revenue || 0)
+        }));
+
       /* ================= DISPATCH REVENUE ================= */
       const dispatchRevenueQuery = `
               SELECT
@@ -429,7 +457,7 @@ exports.getDashboardInsights = (req, res) => {
               ];
 
               response.analytics = {
-                revenueTrend: [],
+                revenueTrend: formattedTrend,
                 jobStats: jobs[0],
                 dispatchStats: dispatch[0],
               };
@@ -460,6 +488,7 @@ exports.getDashboardInsights = (req, res) => {
         });
       });
     });
+   });
   });
 };
 
