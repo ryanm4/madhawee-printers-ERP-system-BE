@@ -32,6 +32,7 @@ exports.getAllDispatchNotes = (req, res, next) => {
       j.job_id,
       j.job_number,
       j.po_id,
+      po.customer_po,
       j.job_name,
       j.job_open_date,
       j.product_type,
@@ -49,6 +50,10 @@ exports.getAllDispatchNotes = (req, res, next) => {
     -- Job first
     LEFT JOIN \`erp_madhawi_db\`.jobs j
       ON d.job_id = j.job_id
+
+    -- Purchase Order
+    LEFT JOIN \`erp_madhawi_db\`.purchase_orders po
+      ON j.po_id = po.po_id
 
     -- Customer (prefer job.customer_id, fallback to dispatch.customer_id)
     LEFT JOIN \`erp_madhawi_db\`.customers c
