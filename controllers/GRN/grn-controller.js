@@ -411,120 +411,183 @@ exports.updateGRN = (req, res) => {
         err => {
           if (err) return connection.rollback(() => res.status(500).json(err));
 
-          // 2️⃣ Delete old GRN items
+          // 2️⃣ Get old GRN items to subtract from inventory
           connection.query(
-            "DELETE FROM grn_items WHERE grn_no = ?",
+            "SELECT item_name, quantity FROM grn_items WHERE grn_no = ?",
             [id],
-            async (err) => {
-              if (err) return connection.rollback(() => res.status(500).json(err));
-
-              // If no items → commit early
-              if (!items || items.length === 0) {
-                return connection.commit(() => res.json({ message: "GRN updated" }));
+            async (err, oldItems) => {
+              if (err) {
+                return connection.rollback(() => {
+                  connection.release();
+                  res.status(500).json(err);
+                });
               }
 
-              // 3️⃣ Insert new GRN items
-              const itemValues = items.map(item => [
-                id,
-                item.item_name,
-                item.quantity,
-                item.rate,
-                item.quantity * item.rate // calculate amount
-              ]);
+              try {
+                // Subtract old quantities from inventory
+                for (const old of oldItems) {
+                  await new Promise((resolve, reject) => {
+                    connection.query(
+                      `UPDATE main_inventory
+                       SET quantity = quantity - ?, updated_on = NOW()
+                       WHERE item_name = ?`,
+                      [Number(old.quantity || 0), old.item_name],
+                      (err) => (err ? reject(err) : resolve())
+                    );
+                  });
+                }
 
-              connection.query(
-                `INSERT INTO grn_items (grn_no, item_name, quantity, rate, amount) VALUES ?`,
-                [itemValues],
-                async (err) => {
-                  if (err) return connection.rollback(() => res.status(500).json(err));
-
-                  try {
-                    // 4️⃣ Update Inventory for each item
-                    for (const item of items) {
-                      const existing = await new Promise((resolve, reject) => {
-                        connection.query(
-                          "SELECT quantity, rate FROM main_inventory WHERE item_name = ?",
-                          [item.item_name],
-                          (err, results) => {
-                            if (err) return reject(err);
-                            resolve(results[0]);
-                          }
-                        );
+                // 3️⃣ Delete old GRN items
+                connection.query(
+                  "DELETE FROM grn_items WHERE grn_no = ?",
+                  [id],
+                  async (err) => {
+                    if (err) {
+                      return connection.rollback(() => {
+                        connection.release();
+                        res.status(500).json(err);
                       });
-
-                      if (existing) {
-                        const oldQty = Number(existing.quantity) || 0;
-                        const oldRate = Number(existing.rate) || 0;
-
-                        const grnQty = Number(item.quantity);
-                        const grnRate = Number(item.rate);
-
-                        const newQty = oldQty + grnQty;
-
-                        // ✅ SIMPLE AVERAGE RATE
-                        const newRate =
-                          oldRate && grnRate
-                            ? (oldRate + grnRate) / 2
-                            : (oldRate || grnRate);
-
-                        await new Promise((resolve, reject) => {
-                          connection.query(
-                            `
-                            UPDATE main_inventory
-                            SET quantity = ?, 
-                                rate = ?, 
-                                updated_on = NOW(),
-                                updated_by = ?
-                            WHERE item_name = ?
-                            `,
-                            [newQty, newRate, updated_by, item.item_name],
-                            (err) => {
-                              if (err) return reject(err);
-                              resolve();
-                            }
-                          );
-                        });
-
-                      } else {
-                        // Insert new inventory item
-                        await new Promise((resolve, reject) => {
-                          connection.query(
-                            `
-                            INSERT INTO main_inventory (
-                              item_name,
-                              quantity,
-                              rate,
-                              created_on,
-                              created_by
-                            ) VALUES (?, ?, ?, NOW(), ?)
-                            `,
-                            [
-                              item.item_name,
-                              item.quantity,
-                              item.rate,
-                              updated_by
-                            ],
-                            (err) => {
-                              if (err) return reject(err);
-                              resolve();
-                            }
-                          );
-                        });
-                      }
                     }
 
-                    // 5️⃣ Commit transaction
-                    connection.commit(err => {
-                      if (err) return connection.rollback(() => res.status(500).json(err));
+                    // If no items → commit early
+                    if (!items || items.length === 0) {
+                      return connection.commit(err => {
+                        if (err) {
+                          return connection.rollback(() => {
+                            connection.release();
+                            res.status(500).json(err);
+                          });
+                        }
+                        connection.release();
+                        res.json({ message: "GRN updated" });
+                      });
+                    }
 
-                      res.json({ message: "GRN updated + inventory updated successfully" });
-                    });
+                    // 4️⃣ Insert new GRN items
+                    const itemValues = items.map(item => [
+                      id,
+                      item.item_name,
+                      item.quantity,
+                      item.rate,
+                      item.quantity * item.rate // calculate amount
+                    ]);
 
-                  } catch (error) {
-                    connection.rollback(() => res.status(500).json({ message: "Inventory update failed", error }));
+                    connection.query(
+                      `INSERT INTO grn_items (grn_no, item_name, quantity, rate, amount) VALUES ?`,
+                      [itemValues],
+                      async (err) => {
+                        if (err) {
+                          return connection.rollback(() => {
+                            connection.release();
+                            res.status(500).json(err);
+                          });
+                        }
+
+                        try {
+                          // 5️⃣ Update Inventory for each item
+                          for (const item of items) {
+                            const existing = await new Promise((resolve, reject) => {
+                              connection.query(
+                                "SELECT quantity, rate FROM main_inventory WHERE item_name = ?",
+                                [item.item_name],
+                                (err, results) => {
+                                  if (err) return reject(err);
+                                  resolve(results[0]);
+                                }
+                              );
+                            });
+
+                            if (existing) {
+                              const oldQty = Number(existing.quantity) || 0;
+                              const oldRate = Number(existing.rate) || 0;
+
+                              const grnQty = Number(item.quantity);
+                              const grnRate = Number(item.rate);
+
+                              const newQty = oldQty + grnQty;
+
+                              // ✅ SIMPLE AVERAGE RATE
+                              const newRate =
+                                oldRate && grnRate
+                                  ? (oldRate + grnRate) / 2
+                                  : (oldRate || grnRate);
+
+                              await new Promise((resolve, reject) => {
+                                connection.query(
+                                  `
+                                  UPDATE main_inventory
+                                  SET quantity = ?, 
+                                      rate = ?, 
+                                      updated_on = NOW(),
+                                      updated_by = ?
+                                  WHERE item_name = ?
+                                  `,
+                                  [newQty, newRate, updated_by, item.item_name],
+                                  (err) => {
+                                    if (err) return reject(err);
+                                    resolve();
+                                  }
+                                );
+                              });
+
+                            } else {
+                              // Insert new inventory item
+                              await new Promise((resolve, reject) => {
+                                connection.query(
+                                  `
+                                  INSERT INTO main_inventory (
+                                    item_name,
+                                    quantity,
+                                    rate,
+                                    created_on,
+                                    created_by
+                                  ) VALUES (?, ?, ?, NOW(), ?)
+                                  `,
+                                  [
+                                    item.item_name,
+                                    item.quantity,
+                                    item.rate,
+                                    updated_by
+                                  ],
+                                  (err) => {
+                                    if (err) return reject(err);
+                                    resolve();
+                                  }
+                                );
+                              });
+                            }
+                          }
+
+                          // 6️⃣ Commit transaction
+                          connection.commit(err => {
+                            if (err) {
+                              return connection.rollback(() => {
+                                connection.release();
+                                res.status(500).json(err);
+                              });
+                            }
+
+                            connection.release();
+                            res.json({ message: "GRN updated + inventory updated successfully" });
+                          });
+
+                        } catch (error) {
+                          connection.rollback(() => {
+                            connection.release();
+                            res.status(500).json({ message: "Inventory update failed", error });
+                          });
+                        }
+                      }
+                    );
                   }
-                }
-              );
+                );
+
+              } catch (subErr) {
+                connection.rollback(() => {
+                  connection.release();
+                  res.status(500).json({ message: "Failed to reverse old inventory", error: subErr.message });
+                });
+              }
             }
           );
         }
@@ -540,27 +603,84 @@ exports.deleteGRN = (req, res) => {
     if (err) return res.status(500).json(err);
 
     connection.beginTransaction(err => {
-      if (err) return res.status(500).json(err);
+      if (err) {
+        connection.release();
+        return res.status(500).json(err);
+      }
 
+      // 1️⃣ Fetch GRN items to subtract their quantities from inventory
       connection.query(
-        "DELETE FROM grn_items WHERE grn_no = ?",
+        "SELECT item_name, quantity FROM grn_items WHERE grn_no = ?",
         [id],
-        err => {
-          if (err) return connection.rollback(() => res.status(500).json(err));
+        async (err, grnItems) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              res.status(500).json(err);
+            });
+          }
 
-          connection.query(
-            "DELETE FROM goods_receive_notes WHERE id = ?",
-            [id],
-            err => {
-              if (err) return connection.rollback(() => res.status(500).json(err));
-
-              connection.commit(err => {
-                if (err) return connection.rollback(() => res.status(500).json(err));
-
-                res.json({ message: "GRN deleted successfully" });
+          try {
+            // 2️⃣ Subtract from inventory for each item
+            for (const item of grnItems) {
+              await new Promise((resolve, reject) => {
+                connection.query(
+                  `UPDATE main_inventory 
+                   SET quantity = quantity - ?, updated_on = NOW() 
+                   WHERE item_name = ?`,
+                  [Number(item.quantity || 0), item.item_name],
+                  err => (err ? reject(err) : resolve())
+                );
               });
             }
-          );
+
+            // 3️⃣ Delete grn_items
+            connection.query(
+              "DELETE FROM grn_items WHERE grn_no = ?",
+              [id],
+              err => {
+                if (err) {
+                  return connection.rollback(() => {
+                    connection.release();
+                    res.status(500).json(err);
+                  });
+                }
+
+                // 4️⃣ Delete goods_receive_notes
+                connection.query(
+                  "DELETE FROM goods_receive_notes WHERE id = ?",
+                  [id],
+                  err => {
+                    if (err) {
+                      return connection.rollback(() => {
+                        connection.release();
+                        res.status(500).json(err);
+                      });
+                    }
+
+                    // 5️⃣ Commit transaction
+                    connection.commit(err => {
+                      if (err) {
+                        return connection.rollback(() => {
+                          connection.release();
+                          res.status(500).json(err);
+                        });
+                      }
+
+                      connection.release();
+                      res.json({ message: "GRN deleted and inventory reduced successfully" });
+                    });
+                  }
+                );
+              }
+            );
+
+          } catch (error) {
+            connection.rollback(() => {
+              connection.release();
+              res.status(500).json({ message: "Failed to reverse inventory for GRN", error: error.message });
+            });
+          }
         }
       );
     });

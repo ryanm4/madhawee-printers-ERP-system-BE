@@ -455,54 +455,89 @@ exports.deleteIssueNoteWithItems = (req, res) => {
 
     connection.beginTransaction((err) => {
       if (err) {
+        connection.release();
         return res
           .status(500)
           .json({ message: "Transaction error", error: err });
       }
 
-      const deleteItemsQuery =
-        "DELETE FROM erp_madhawi_db.`issue_note-items` WHERE issue_note_id = ?";
-
-      connection.query(deleteItemsQuery, [id], (err) => {
-        if (err) {
-          return connection.rollback(() =>
-            res
-              .status(500)
-              .json({ message: "DB error deleting items", error: err }),
-          );
-        }
-
-        const deleteNoteQuery =
-          "DELETE FROM erp_madhawi_db.`issue-notes` WHERE id = ?";
-
-        connection.query(deleteNoteQuery, [id], (err, result) => {
+      // 1️⃣ Fetch items to restore inventory quantities
+      connection.query(
+        "SELECT item_id, quantity FROM erp_madhawi_db.`issue_note-items` WHERE issue_note_id = ?",
+        [id],
+        async (err, items) => {
           if (err) {
-            return connection.rollback(() =>
-              res
-                .status(500)
-                .json({ message: "DB error deleting note", error: err }),
-            );
+            return connection.rollback(() => {
+              connection.release();
+              res.status(500).json({ message: "DB error fetching items", error: err });
+            });
           }
 
-          if (result.affectedRows === 0) {
-            return connection.rollback(() =>
-              res.status(404).json({ message: "Issue note not found" }),
-            );
-          }
-
-          connection.commit((err) => {
-            if (err) {
-              return connection.rollback(() =>
-                res.status(500).json({ message: "Commit error", error: err }),
-              );
+          try {
+            // 2️⃣ Restore quantity in main_inventory
+            for (const item of items) {
+              if (item.item_id) {
+                await new Promise((resolve, reject) => {
+                  connection.query(
+                    `UPDATE erp_madhawi_db.main_inventory
+                     SET quantity = quantity + ?, updated_on = NOW()
+                     WHERE item_id = ?`,
+                    [Number(item.quantity || 0), item.item_id],
+                    err => (err ? reject(err) : resolve())
+                  );
+                });
+              }
             }
 
-            res.json({
-              message: "Issue note and all items deleted successfully",
+            // 3️⃣ Delete items
+            connection.query(
+              "DELETE FROM erp_madhawi_db.`issue_note-items` WHERE issue_note_id = ?",
+              [id],
+              err => {
+                if (err) {
+                  return connection.rollback(() => {
+                    connection.release();
+                    res.status(500).json({ message: "DB error deleting items", error: err });
+                  });
+                }
+
+                // 4️⃣ Delete note
+                connection.query(
+                  "DELETE FROM erp_madhawi_db.`issue-notes` WHERE id = ?",
+                  [id],
+                  err => {
+                    if (err) {
+                      return connection.rollback(() => {
+                        connection.release();
+                        res.status(500).json({ message: "DB error deleting note", error: err });
+                      });
+                    }
+
+                    // 5️⃣ Commit transaction
+                    connection.commit(err => {
+                      if (err) {
+                        return connection.rollback(() => {
+                          connection.release();
+                          res.status(500).json({ message: "Commit error", error: err });
+                        });
+                      }
+
+                      connection.release();
+                      res.json({ message: "Issue note deleted and inventory restored successfully" });
+                    });
+                  }
+                );
+              }
+            );
+
+          } catch (error) {
+            connection.rollback(() => {
+              connection.release();
+              res.status(500).json({ message: "Failed to restore inventory for Issue Note", error: error.message });
             });
-          });
-        });
-      });
+          }
+        }
+      );
     });
   });
 };

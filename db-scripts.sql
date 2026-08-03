@@ -248,7 +248,7 @@ CREATE TABLE
 CREATE TABLE
   `erp_madhawi_db`.`goods_receive_notes` (
     `id` INT NOT NULL AUTO_INCREMENT,
-    `releated_po` VARCHAR(45) NULL,
+    `related_po` VARCHAR(45) NULL,
     `received_date` DATETIME NULL,
     `supplier_name` VARCHAR(45) NULL,
     `stock_location` VARCHAR(45) NULL,
