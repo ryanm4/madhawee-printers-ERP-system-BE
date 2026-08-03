@@ -27,7 +27,7 @@ const grnRouter = express.Router();
  *                     properties:
  *                       id:
  *                         type: integer
- *                       releated_po:
+ *                       related_po:
  *                         type: string
  *                       received_date:
  *                         type: string
@@ -89,7 +89,7 @@ grnRouter.get("/", grnController.getAllGRNs);
  *           schema:
  *             type: object
  *             required:
- *               - releated_po
+ *               - related_po
  *               - received_date
  *               - supplier_name
  *               - stock_location
@@ -100,7 +100,7 @@ grnRouter.get("/", grnController.getAllGRNs);
  *               - created_by
  *               - items
  *             properties:
- *               releated_po:
+ *               related_po:
  *                 type: string
  *               received_date:
  *                 type: string
@@ -176,7 +176,7 @@ grnRouter.post("/", grnController.createGRN);
  *               properties:
  *                 id:
  *                   type: integer
- *                 releated_po:
+ *                 related_po:
  *                   type: string
  *                 received_date:
  *                   type: string
@@ -237,7 +237,7 @@ grnRouter.get("/:id", grnController.getGRNById);
  *           schema:
  *             type: object
  *             required:
- *               - releated_po
+ *               - related_po
  *               - received_date
  *               - supplier_name
  *               - stock_location
@@ -248,7 +248,7 @@ grnRouter.get("/:id", grnController.getGRNById);
  *               - updated_by
  *               - items
  *             properties:
- *               releated_po:
+ *               related_po:
  *                 type: string
  *               received_date:
  *                 type: string
