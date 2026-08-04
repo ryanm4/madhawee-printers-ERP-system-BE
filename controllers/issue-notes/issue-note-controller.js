@@ -9,7 +9,8 @@ exports.getAllIssueNotesWithItems = (req, res) => {
       n.date,
       n.remarks,
       n.collector_name,
-      i.id AS item_id,
+      i.id AS issue_note_item_row_id,
+      i.item_id,
       i.issue_note_id,
       i.item_name,
       i.quantity
@@ -37,9 +38,10 @@ exports.getAllIssueNotesWithItems = (req, res) => {
           items: [],
         });
       }
-      if (row.item_id) {
+      if (row.issue_note_item_row_id) {
         notesMap.get(noteId).items.push({
-          id: row.item_id,
+          id: row.issue_note_item_row_id,
+          item_id: row.item_id,
           issue_note_id: row.issue_note_id,
           item_name: row.item_name,
           quantity: row.quantity,
@@ -62,7 +64,8 @@ exports.getIssueNoteByIdWithItems = (req, res) => {
       n.date,
       n.remarks,
       n.collector_name,
-      i.id AS item_id,
+      i.id AS issue_note_item_row_id,
+      i.item_id,
       i.issue_note_id,
       i.item_name,
       i.quantity
@@ -90,9 +93,10 @@ exports.getIssueNoteByIdWithItems = (req, res) => {
     };
 
     results.forEach((row) => {
-      if (row.item_id) {
+      if (row.issue_note_item_row_id) {
         note.items.push({
-          id: row.item_id,
+          id: row.issue_note_item_row_id,
+          item_id: row.item_id,
           issue_note_id: row.issue_note_id,
           item_name: row.item_name,
           quantity: row.quantity,
@@ -318,7 +322,7 @@ exports.updateIssueNoteWithItems = (req, res) => {
 
       // 1️⃣ Get old items
       const selectOldItems = `
-        SELECT item_name, quantity
+        SELECT item_id, quantity
         FROM erp_madhawi_db.\`issue_note-items\`
         WHERE issue_note_id = ?
       `;
@@ -357,82 +361,107 @@ exports.updateIssueNoteWithItems = (req, res) => {
             connection.query(
               "DELETE FROM erp_madhawi_db.`issue_note-items` WHERE issue_note_id = ?",
               [id],
-              (err) => {
+              async (err) => {
                 if (err) {
                   return connection.rollback(() =>
                     res.status(500).json({ message: "DB error", error: err }),
                   );
                 }
 
-                // 4️⃣ Insert new items
-                const itemQuery = `
-                  INSERT INTO erp_madhawi_db.\`issue_note-items\`
-                  (issue_note_id, item_name, quantity)
-                  VALUES ?
-                `;
+                try {
+                  // Fetch names of new items from main_inventory to save in database
+                  const newItemsData = [];
+                  for (const ni of items) {
+                    const inventoryItem = await new Promise((resolve, reject) => {
+                      connection.query(
+                        "SELECT item_id, item_name FROM erp_madhawi_db.main_inventory WHERE item_id = ?",
+                        [ni.item_id],
+                        (err, results) => {
+                          if (err) return reject(err);
+                          resolve(results[0]);
+                        }
+                      );
+                    });
 
-                const itemValues = items.map((i) => [
-                  id,
-                  i.item_name,
-                  i.quantity,
-                ]);
-
-                connection.query(itemQuery, [itemValues], async (err) => {
-                  if (err) {
-                    return connection.rollback(() =>
-                      res.status(500).json({ message: "DB error", error: err }),
-                    );
+                    if (inventoryItem) {
+                      newItemsData.push({
+                        item_id: ni.item_id,
+                        item_name: inventoryItem.item_name,
+                        quantity: ni.quantity,
+                      });
+                    }
                   }
 
-                  try {
-                    // 5️⃣ Restore old inventory
-                    for (const old of oldItems) {
+                  // 4️⃣ Insert new items
+                  const itemQuery = `
+                    INSERT INTO erp_madhawi_db.\`issue_note-items\`
+                    (issue_note_id, item_id, item_name, quantity)
+                    VALUES ?
+                  `;
+
+                  const itemValues = newItemsData.map((i) => [
+                    id,
+                    i.item_id,
+                    i.item_name,
+                    i.quantity,
+                  ]);
+
+                  await new Promise((resolve, reject) => {
+                    connection.query(itemQuery, [itemValues], (err) =>
+                      err ? reject(err) : resolve()
+                    );
+                  });
+
+                  // 5️⃣ Restore old inventory
+                  for (const old of oldItems) {
+                    if (old.item_id) {
                       await new Promise((resolve, reject) => {
                         connection.query(
                           `UPDATE erp_madhawi_db.\`main_inventory\`
                            SET quantity = quantity + ?, updated_on = NOW(), updated_by = ?
-                           WHERE CONCAT(IFNULL(item_sub_category, ''), ' ', IFNULL(item_name, ''), ' ', IFNULL(size, '')) = ?`,
-                          [old.quantity, updated_by, old.item_name],
+                           WHERE item_id = ?`,
+                          [old.quantity, updated_by, old.item_id],
                           (err) => (err ? reject(err) : resolve()),
                         );
                       });
                     }
-
-                    // 6️⃣ Deduct new inventory
-                    for (const ni of items) {
-                      await new Promise((resolve, reject) => {
-                        connection.query(
-                          `UPDATE erp_madhawi_db.\`main_inventory\`
-                           SET quantity = quantity - ?, updated_on = NOW(), updated_by = ?
-                           WHERE CONCAT(IFNULL(item_sub_category, ''), ' ', IFNULL(item_name, ''), ' ', IFNULL(size, '')) = ?`,
-                          [ni.quantity, updated_by, ni.item_name],
-                          (err) => (err ? reject(err) : resolve()),
-                        );
-                      });
-                    }
-
-                    connection.commit((err) => {
-                      if (err) {
-                        return connection.rollback(() =>
-                          res
-                            .status(500)
-                            .json({ message: "Commit error", error: err }),
-                        );
-                      }
-
-                      res.json({
-                        message: "Issue note updated and inventory adjusted",
-                      });
-                    });
-                  } catch (invErr) {
-                    connection.rollback(() =>
-                      res.status(500).json({
-                        message: "Inventory adjustment failed",
-                        error: invErr,
-                      }),
-                    );
                   }
-                });
+
+                  // 6️⃣ Deduct new inventory
+                  for (const ni of newItemsData) {
+                    await new Promise((resolve, reject) => {
+                      connection.query(
+                        `UPDATE erp_madhawi_db.\`main_inventory\`
+                         SET quantity = quantity - ?, updated_on = NOW(), updated_by = ?
+                         WHERE item_id = ?`,
+                        [ni.quantity, updated_by, ni.item_id],
+                        (err) => (err ? reject(err) : resolve()),
+                      );
+                    });
+                  }
+
+                  connection.commit((err) => {
+                    if (err) {
+                      return connection.rollback(() =>
+                        res
+                          .status(500)
+                          .json({ message: "Commit error", error: err }),
+                      );
+                    }
+
+                    res.json({
+                      message: "Issue note updated and inventory adjusted",
+                    });
+                  });
+
+                } catch (invErr) {
+                  connection.rollback(() =>
+                    res.status(500).json({
+                      message: "Inventory adjustment failed",
+                      error: invErr.message,
+                    }),
+                  );
+                }
               },
             );
           },
