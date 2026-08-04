@@ -28,7 +28,8 @@ exports.getAllGRNs = async (req, res) => {
         grn.updated_on,
         grn.updated_by,
 
-        gi.id AS item_id,
+        gi.id AS grn_item_row_id,
+        gi.item_id,
         gi.item_name,
         gi.quantity,
         gi.rate,
@@ -68,9 +69,10 @@ exports.getAllGRNs = async (req, res) => {
             }
 
             // Add items if exists
-            if (row.item_id) {
+            if (row.grn_item_row_id) {
                 grnMap[row.grn_id].items.push({
-                    id: row.item_id,
+                    id: row.grn_item_row_id,
+                    item_id: row.item_id,
                     item_name: row.item_name,
                     quantity: row.quantity,
                     rate: row.rate,
@@ -117,7 +119,8 @@ exports.getGRNById = async (req, res) => {
         grn.supplier_invoice_no,
         grn.remarks,
 
-        gi.id AS item_id,
+        gi.id AS grn_item_row_id,
+        gi.item_id,
         gi.item_name,
         gi.quantity,
         gi.rate,
@@ -149,9 +152,10 @@ exports.getGRNById = async (req, res) => {
     };
 
     results.forEach(row => {
-      if (row.item_id) {
+      if (row.grn_item_row_id) {
         grn.items.push({
-          id: row.item_id,
+          id: row.grn_item_row_id,
+          item_id: row.item_id,
           item_name: row.item_name,
           quantity: row.quantity,
           rate: row.rate,
@@ -229,12 +233,13 @@ exports.createGRN = (req, res) => {
 
           // 2️⃣ Insert GRN Items
           const itemQuery = `
-            INSERT INTO grn_items (grn_no, item_name, quantity, rate, amount)
+            INSERT INTO grn_items (grn_no, item_id, item_name, quantity, rate, amount)
             VALUES ?
           `;
 
           const itemValues = items.map(item => [
             grnId,
+            item.item_id,
             item.item_name,
             item.quantity,
             item.rate,
@@ -252,8 +257,8 @@ exports.createGRN = (req, res) => {
 
                 const existing = await new Promise((resolve, reject) => {
                   connection.query(
-                    "SELECT quantity, rate FROM main_inventory WHERE item_name = ?",
-                    [item.item_name],
+                    "SELECT quantity, rate FROM main_inventory WHERE item_id = ?",
+                    [item.item_id],
                     (err, results) => {
                       if (err) return reject(err);
                       resolve(results[0]);
@@ -284,9 +289,9 @@ exports.createGRN = (req, res) => {
                           rate = ?, 
                           updated_on = NOW(),
                           updated_by = ?
-                      WHERE item_name = ?
+                      WHERE item_id = ?
                       `,
-                      [newQty, newRate, created_by, item.item_name],
+                      [newQty, newRate, created_by, item.item_id],
                       (err) => {
                         if (err) return reject(err);
                         resolve();
@@ -413,7 +418,7 @@ exports.updateGRN = (req, res) => {
 
           // 2️⃣ Get old GRN items to subtract from inventory
           connection.query(
-            "SELECT item_name, quantity FROM grn_items WHERE grn_no = ?",
+            "SELECT item_id, quantity FROM grn_items WHERE grn_no = ?",
             [id],
             async (err, oldItems) => {
               if (err) {
@@ -426,15 +431,17 @@ exports.updateGRN = (req, res) => {
               try {
                 // Subtract old quantities from inventory
                 for (const old of oldItems) {
-                  await new Promise((resolve, reject) => {
-                    connection.query(
-                      `UPDATE main_inventory
-                       SET quantity = quantity - ?, updated_on = NOW()
-                       WHERE item_name = ?`,
-                      [Number(old.quantity || 0), old.item_name],
-                      (err) => (err ? reject(err) : resolve())
-                    );
-                  });
+                  if (old.item_id) {
+                    await new Promise((resolve, reject) => {
+                      connection.query(
+                        `UPDATE main_inventory
+                         SET quantity = quantity - ?, updated_on = NOW()
+                         WHERE item_id = ?`,
+                        [Number(old.quantity || 0), old.item_id],
+                        (err) => (err ? reject(err) : resolve())
+                      );
+                    });
+                  }
                 }
 
                 // 3️⃣ Delete old GRN items
@@ -466,6 +473,7 @@ exports.updateGRN = (req, res) => {
                     // 4️⃣ Insert new GRN items
                     const itemValues = items.map(item => [
                       id,
+                      item.item_id,
                       item.item_name,
                       item.quantity,
                       item.rate,
@@ -473,7 +481,7 @@ exports.updateGRN = (req, res) => {
                     ]);
 
                     connection.query(
-                      `INSERT INTO grn_items (grn_no, item_name, quantity, rate, amount) VALUES ?`,
+                      `INSERT INTO grn_items (grn_no, item_id, item_name, quantity, rate, amount) VALUES ?`,
                       [itemValues],
                       async (err) => {
                         if (err) {
@@ -488,8 +496,8 @@ exports.updateGRN = (req, res) => {
                           for (const item of items) {
                             const existing = await new Promise((resolve, reject) => {
                               connection.query(
-                                "SELECT quantity, rate FROM main_inventory WHERE item_name = ?",
-                                [item.item_name],
+                                "SELECT quantity, rate FROM main_inventory WHERE item_id = ?",
+                                [item.item_id],
                                 (err, results) => {
                                   if (err) return reject(err);
                                   resolve(results[0]);
@@ -520,9 +528,9 @@ exports.updateGRN = (req, res) => {
                                       rate = ?, 
                                       updated_on = NOW(),
                                       updated_by = ?
-                                  WHERE item_name = ?
+                                  WHERE item_id = ?
                                   `,
-                                  [newQty, newRate, updated_by, item.item_name],
+                                  [newQty, newRate, updated_by, item.item_id],
                                   (err) => {
                                     if (err) return reject(err);
                                     resolve();
