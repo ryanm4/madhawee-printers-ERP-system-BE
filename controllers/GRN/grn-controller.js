@@ -281,24 +281,23 @@ exports.createGRN = (req, res) => {
                       ? (oldRate + grnRate) / 2
                       : (oldRate || grnRate);
 
-                  await new Promise((resolve, reject) => {
-                    connection.query(
-                      `
-                      UPDATE main_inventory
-                      SET quantity = ?, 
-                          unit_price = ?, 
-                          rate = ?,
-                          updated_on = NOW(),
-                          updated_by = ?
-                      WHERE item_id = ?
-                      `,
-                      [newQty, newRate, newRate, created_by, item.item_id],
-                      (err) => {
-                        if (err) return reject(err);
-                        resolve();
-                      }
-                    );
-                  });
+                              await new Promise((resolve, reject) => {
+                                connection.query(
+                                  `
+                                  UPDATE main_inventory
+                                  SET quantity = ?, 
+                                      unit_price = ?, 
+                                      updated_on = NOW(),
+                                      updated_by = ?
+                                  WHERE item_id = ?
+                                  `,
+                                  [newQty, newRate, created_by, item.item_id],
+                                  (err) => {
+                                    if (err) return reject(err);
+                                    resolve();
+                                  }
+                                );
+                              });
 
                 } else {
                   // Insert new inventory item
@@ -306,20 +305,16 @@ exports.createGRN = (req, res) => {
                     connection.query(
                       `
                       INSERT INTO main_inventory (
-                        item_id,
                         item_name,
                         quantity,
                         unit_price,
-                        rate,
                         created_on,
                         created_by
-                      ) VALUES (?, ?, ?, ?, ?, NOW(), ?)
+                      ) VALUES (?, ?, ?, NOW(), ?)
                       `,
                       [
-                        item.item_id,
                         item.item_name,
                         item.quantity,
-                        item.rate,
                         item.rate,
                         created_by
                       ],
@@ -531,12 +526,11 @@ exports.updateGRN = (req, res) => {
                                   UPDATE main_inventory
                                   SET quantity = ?, 
                                       unit_price = ?, 
-                                      rate = ?,
                                       updated_on = NOW(),
                                       updated_by = ?
                                   WHERE item_id = ?
                                   `,
-                                  [newQty, newRate, newRate, updated_by, item.item_id],
+                                  [newQty, newRate, updated_by, item.item_id],
                                   (err) => {
                                     if (err) return reject(err);
                                     resolve();
@@ -550,20 +544,16 @@ exports.updateGRN = (req, res) => {
                                 connection.query(
                                   `
                                   INSERT INTO main_inventory (
-                                    item_id,
                                     item_name,
                                     quantity,
                                     unit_price,
-                                    rate,
                                     created_on,
                                     created_by
-                                  ) VALUES (?, ?, ?, ?, ?, NOW(), ?)
+                                  ) VALUES (?, ?, ?, NOW(), ?)
                                   `,
                                   [
-                                    item.item_id,
                                     item.item_name,
                                     item.quantity,
-                                    item.rate,
                                     item.rate,
                                     updated_by
                                   ],
