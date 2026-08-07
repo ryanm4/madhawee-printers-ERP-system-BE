@@ -355,10 +355,12 @@ exports.generateInventoryReport = async (req, res) => {
         0
       );
 
+      const formatCurrency = (val) => `LKR ${Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
       const formattedRows = rows.map(row => ({
         ...row,
-        unit_rate: row.unit_rate ? `LKR ${Number(row.unit_rate).toFixed(2)}` : "LKR 0.00",
-        stock_value: row.stock_value ? `LKR ${Number(row.stock_value).toFixed(2)}` : "LKR 0.00"
+        unit_rate: row.unit_rate ? formatCurrency(row.unit_rate) : "LKR 0.00",
+        stock_value: row.stock_value ? formatCurrency(row.stock_value) : "LKR 0.00"
       }));
 
       // Append Total Row for Table and Export
@@ -369,7 +371,7 @@ exports.generateInventoryReport = async (req, res) => {
         size: "",
         quantity: null,
         unit_rate: null,
-        stock_value: `LKR ${grand_total.toFixed(2)}`
+        stock_value: formatCurrency(grand_total)
       });
 
       return res.status(200).json({
