@@ -22,10 +22,11 @@ exports.generateInventoryReport = async (req, res) => {
       case "CURRENT_STOCK":
         query = `
           SELECT
-              mi.item_id,
-              mi.item_name,
               mi.item_category,
+              mi.item_sub_category,
+              mi.item_name,
               mi.size,
+              mi.item_id,
               mi.unit_of_measure,
 
               COALESCE(
@@ -95,7 +96,10 @@ exports.generateInventoryReport = async (req, res) => {
       case "STOCK_AGING":
         query = `
           SELECT
+              mi.item_category,
+              mi.item_sub_category,
               mi.item_name,
+              mi.size,
 
               COALESCE(
                 (
@@ -188,9 +192,11 @@ exports.generateInventoryReport = async (req, res) => {
       case "LOW_STOCK":
         query = `
           SELECT
-              mi.item_id,
-              mi.item_name,
               mi.item_category,
+              mi.item_sub_category,
+              mi.item_name,
+              mi.size,
+              mi.item_id,
 
               (
                 COALESCE(
@@ -235,12 +241,16 @@ exports.generateInventoryReport = async (req, res) => {
               grn.id AS grn_id,
               grn.supplier_name,
               grn.received_date,
+              mi.item_category,
+              mi.item_sub_category,
               gi.item_name,
+              mi.size,
               gi.quantity,
               gi.rate,
               gi.amount
           FROM goods_receive_notes grn
           INNER JOIN grn_items gi ON gi.grn_no = grn.id
+          LEFT JOIN main_inventory mi ON mi.item_name = gi.item_name
           WHERE DATE(grn.received_date) BETWEEN ? AND ?
           ORDER BY grn.received_date DESC
         `;
@@ -254,14 +264,18 @@ exports.generateInventoryReport = async (req, res) => {
       case "GRN_VALUE":
         query = `
           SELECT
+              mi.item_category,
+              mi.item_sub_category,
               gi.item_name,
+              mi.size,
               SUM(gi.quantity) AS total_qty,
               AVG(gi.rate) AS avg_rate,
               SUM(gi.amount) AS total_value
           FROM goods_receive_notes grn
           INNER JOIN grn_items gi ON gi.grn_no = grn.id
+          LEFT JOIN main_inventory mi ON mi.item_name = gi.item_name
           WHERE DATE(grn.received_date) BETWEEN ? AND ?
-          GROUP BY gi.item_name
+          GROUP BY mi.item_category, mi.item_sub_category, gi.item_name, mi.size
         `;
         params = [from_date, to_date];
         break;
@@ -272,12 +286,17 @@ exports.generateInventoryReport = async (req, res) => {
               YEARWEEK(grn.received_date, 1) AS grn_week,
               MIN(DATE(grn.received_date)) AS week_start_date,
               MAX(DATE(grn.received_date)) AS week_end_date,
+              mi.item_category,
+              mi.item_sub_category,
+              gi.item_name,
+              mi.size,
               SUM(gi.quantity) AS total_qty,
               SUM(gi.amount) AS total_value
           FROM goods_receive_notes grn
           INNER JOIN grn_items gi ON gi.grn_no = grn.id
+          LEFT JOIN main_inventory mi ON mi.item_name = gi.item_name
           WHERE DATE(grn.received_date) BETWEEN ? AND ?
-          GROUP BY YEARWEEK(grn.received_date, 1)
+          GROUP BY YEARWEEK(grn.received_date, 1), mi.item_category, mi.item_sub_category, gi.item_name, mi.size
           ORDER BY grn_week ASC
         `;
         params = [from_date, to_date];
@@ -287,12 +306,17 @@ exports.generateInventoryReport = async (req, res) => {
         query = `
           SELECT
               DATE_FORMAT(grn.received_date, '%Y-%m') AS grn_month,
+              mi.item_category,
+              mi.item_sub_category,
+              gi.item_name,
+              mi.size,
               SUM(gi.quantity) AS total_qty,
               SUM(gi.amount) AS total_value
           FROM goods_receive_notes grn
           INNER JOIN grn_items gi ON gi.grn_no = grn.id
+          LEFT JOIN main_inventory mi ON mi.item_name = gi.item_name
           WHERE DATE(grn.received_date) BETWEEN ? AND ?
-          GROUP BY DATE_FORMAT(grn.received_date, '%Y-%m')
+          GROUP BY DATE_FORMAT(grn.received_date, '%Y-%m'), mi.item_category, mi.item_sub_category, gi.item_name, mi.size
           ORDER BY grn_month ASC
         `;
         params = [from_date, to_date];
@@ -305,12 +329,16 @@ exports.generateInventoryReport = async (req, res) => {
       case "MATERIAL_CONSUMPTION_SUMMARY":
         query = `
           SELECT
-              material_name,
-              material_type,
-              SUM(CAST(quantity AS DECIMAL(10,2))) AS total_consumed
-          FROM job_materials
-          WHERE status = 'ACTIVE'
-          GROUP BY material_name, material_type
+              mi.item_category,
+              mi.item_sub_category,
+              jm.material_name AS item_name,
+              mi.size,
+              jm.material_type,
+              SUM(CAST(jm.quantity AS DECIMAL(10,2))) AS total_consumed
+          FROM job_materials jm
+          LEFT JOIN main_inventory mi ON mi.item_name = jm.material_name
+          WHERE jm.status = 'ACTIVE'
+          GROUP BY mi.item_category, mi.item_sub_category, jm.material_name, mi.size, jm.material_type
           ORDER BY total_consumed DESC
         `;
         params = [];
@@ -326,14 +354,18 @@ exports.generateInventoryReport = async (req, res) => {
           SELECT
               jm.job_id,
               j.job_name,
-              jm.material_name,
+              mi.item_category,
+              mi.item_sub_category,
+              jm.material_name AS item_name,
+              mi.size,
               jm.material_type,
               SUM(CAST(jm.quantity AS DECIMAL(10,2))) AS consumed_qty
           FROM job_materials jm
           LEFT JOIN jobs j ON j.job_id = jm.job_id
+          LEFT JOIN main_inventory mi ON mi.item_name = jm.material_name
           WHERE jm.status = 'ACTIVE'
           AND j.job_open_date BETWEEN ? AND ?
-          GROUP BY jm.job_id, jm.material_name, jm.material_type
+          GROUP BY jm.job_id, mi.item_category, mi.item_sub_category, jm.material_name, mi.size, jm.material_type
           ORDER BY jm.job_id
         `;
         params = [from_date, to_date];
