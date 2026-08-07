@@ -61,11 +61,11 @@ exports.createInventoryItem = (req, res, next) => {
     size,
     height,
     width,
-    quantity,
     unit_of_measure,
     reorder_level,
     status,
     remarks,
+    unit_price,
     created_by,
   } = req.body;
 
@@ -82,9 +82,10 @@ exports.createInventoryItem = (req, res, next) => {
       reorder_level,
       status,
       remarks,
+      unit_price,
       created_on,
       created_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
   `;
 
   pool.query(
@@ -96,11 +97,12 @@ exports.createInventoryItem = (req, res, next) => {
       size,
       height,
       width,
-      quantity,
+      0, // Item Quantity is 0 on creation, updated via GRN
       unit_of_measure,
       reorder_level,
       status,
       remarks,
+      unit_price,
       created_by,
     ],
     (err, result) => {
@@ -134,6 +136,7 @@ exports.updateInventoryItem = (req, res, next) => {
     reorder_level,
     status,
     remarks,
+    unit_price,
     updated_by,
   } = req.body;
 
@@ -151,6 +154,7 @@ exports.updateInventoryItem = (req, res, next) => {
       reorder_level = ?,
       status = ?,
       remarks = ?,
+      unit_price = ?,
       updated_on = NOW(),
       updated_by = ?
     WHERE item_id = ?
@@ -170,6 +174,7 @@ exports.updateInventoryItem = (req, res, next) => {
       reorder_level,
       status,
       remarks,
+      unit_price,
       updated_by, // ✅ correct order
       item_id,    // ✅ correct order
     ],
