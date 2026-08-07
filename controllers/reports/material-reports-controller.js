@@ -413,6 +413,7 @@ exports.generateInventoryReport = async (req, res) => {
         quantity: null,
         rate: null,
         amount: formatCurrency(grand_total)
+      });
     } else if (
         report_type === "GRN_REPORT" || 
         report_type === "MATERIAL_CONSUMPTION_SUMMARY" || 
