@@ -2,7 +2,7 @@ const pool = require('../../sql-connection');
 
 exports.generateInventoryReport = async (req, res) => {
   try {
-    const { report_type, from_date, to_date } = req.body;
+    const { report_type, from_date, to_date, item_category, item_sub_category } = req.body;
 
     if (!report_type) {
       return res.status(400).json({
@@ -60,12 +60,21 @@ exports.generateInventoryReport = async (req, res) => {
        * ==========================================================
        */
       case "STOCK_VALUE":
+        let stockWhereClause = "WHERE 1=1";
+        if (item_category && item_category !== "ALL") {
+          stockWhereClause += " AND item_category = ?";
+          params.push(item_category);
+        }
+        if (item_sub_category && item_sub_category !== "ALL") {
+          stockWhereClause += " AND item_sub_category = ?";
+          params.push(item_sub_category);
+        }
+
         query = `
           SELECT
-              item_id,
-              item_name,
               item_category,
               item_sub_category,
+              item_name,
               size,
 
               CAST(quantity AS DECIMAL(10,2)) AS quantity,
@@ -74,8 +83,8 @@ exports.generateInventoryReport = async (req, res) => {
               (CAST(quantity AS DECIMAL(10,2)) * CAST(rate AS DECIMAL(10,2))) AS stock_value
 
           FROM main_inventory
+          ${stockWhereClause}
         `;
-        params = [];
         break;
 
       /**
@@ -345,6 +354,17 @@ exports.generateInventoryReport = async (req, res) => {
         (sum, row) => sum + Number(row.stock_value || 0),
         0
       );
+
+      // Append Total Row for Table and Export
+      rows.push({
+        item_category: "TOTAL",
+        item_sub_category: "",
+        item_name: "",
+        size: "",
+        quantity: null,
+        unit_rate: null,
+        stock_value: grand_total
+      });
 
       return res.status(200).json({
         report_type,
