@@ -17,6 +17,7 @@ const { verifyToken } = require("./middleware/verify-token");
 const reportRouter = require("./routes/reports/report-routes");
 const grnRouter = require("./routes/GRN/grn-route");
 const issueNoteRouter = require("./routes/issue-notes/issue-note-route");
+const currencyRouter = require("./routes/currency-route");
 
 dotenv.config({ path: "./config.env" });
 const port = process.env.PORT || 3000;
@@ -58,6 +59,7 @@ app.get('/debug-swagger', (req, res) => {
 // ✅ 6. Protected routes
 app.use("/api/v1/quotes", quoteRouter);
 app.use("/api/v1/customers", customerRouter);
+app.use("/api/v1/currency", currencyRouter);
 app.use("/api/v1/purchase_orders", poRouter);
 app.use("/api/v1/jobs", jobsRouter);
 app.use("/api/v1/dispatch", dispatchRouter);
