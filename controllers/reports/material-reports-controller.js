@@ -290,7 +290,7 @@ exports.generateInventoryReport = async (req, res) => {
       * ==========================================================
       */
       case "MATERIAL_CONSUMPTION_SUMMARY":
-        let matSummaryWhere = "WHERE LOWER(in_h.status) = 'active' AND DATE(in_h.issue_date) BETWEEN ? AND ?";
+        let matSummaryWhere = "WHERE DATE(in_h.date) BETWEEN ? AND ?";
         params = [from_date, to_date];
 
         if (item_id && item_id !== "ALL") {
@@ -302,7 +302,7 @@ exports.generateInventoryReport = async (req, res) => {
           SELECT
               mi.item_category,
               mi.item_sub_category,
-              mi.item_name,
+              COALESCE(mi.item_name, ini.item_name) AS item_name,
               mi.size,
               '' AS material_type,
               CAST(SUM(CAST(ini.quantity AS DECIMAL(10,2))) AS DECIMAL(10,2)) AS total_consumed,
@@ -310,9 +310,9 @@ exports.generateInventoryReport = async (req, res) => {
               CAST((SUM(CAST(ini.quantity AS DECIMAL(10,2))) * CAST(mi.rate AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS total_value
           FROM \`issue_note-items\` ini
           LEFT JOIN \`issue-notes\` in_h ON in_h.id = ini.issue_note_id
-          LEFT JOIN main_inventory mi ON mi.item_id = ini.item_id
+          LEFT JOIN main_inventory mi ON mi.item_id = ini.item_id OR (ini.item_id IS NULL AND mi.item_name = ini.item_name)
           ${matSummaryWhere}
-          GROUP BY mi.item_category, mi.item_sub_category, mi.item_name, mi.size, mi.rate
+          GROUP BY mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.rate
           ORDER BY total_consumed DESC
         `;
         break;
