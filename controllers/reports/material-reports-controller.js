@@ -2,7 +2,7 @@ const pool = require('../../sql-connection');
 
 exports.generateInventoryReport = async (req, res) => {
   try {
-    const { report_type, from_date, to_date, item_category, item_sub_category } = req.body;
+    const { report_type, from_date, to_date, item_category, item_sub_category, supplier_name } = req.body;
 
     if (!report_type) {
       return res.status(400).json({
@@ -35,7 +35,7 @@ exports.generateInventoryReport = async (req, res) => {
                   FROM grn_items gi
                   INNER JOIN goods_receive_notes grn
                       ON grn.id = gi.grn_no
-                  WHERE gi.item_name = mi.item_name
+                  WHERE gi.item_id = mi.item_id
                   AND DATE(grn.received_date) BETWEEN ? AND ?
                 ),0
               )
@@ -44,7 +44,7 @@ exports.generateInventoryReport = async (req, res) => {
                 (
                   SELECT SUM(ini.quantity)
                   FROM \`issue_note-items\` ini
-                  WHERE ini.item_name = mi.item_name
+                  WHERE ini.item_id = mi.item_id
                 ),0
               ) AS available_qty
 
@@ -105,7 +105,7 @@ exports.generateInventoryReport = async (req, res) => {
                 (
                   SELECT SUM(gi.quantity)
                   FROM grn_items gi
-                  WHERE gi.item_name = mi.item_name
+                  WHERE gi.item_id = mi.item_id
                 ),0
               )
               -
@@ -113,7 +113,7 @@ exports.generateInventoryReport = async (req, res) => {
                 (
                   SELECT SUM(ini.quantity)
                   FROM \`issue_note-items\` ini
-                  WHERE ini.item_name = mi.item_name
+                  WHERE ini.item_id = mi.item_id
                 ),0
               ) AS quantity,
 
@@ -122,8 +122,7 @@ exports.generateInventoryReport = async (req, res) => {
                 FROM grn_items gi
                 INNER JOIN goods_receive_notes grn
                     ON grn.id = gi.grn_no
-                WHERE gi.item_name = mi.item_name
-                AND DATE(grn.received_date) BETWEEN ? AND ?
+                WHERE gi.item_id = mi.item_id
               ) AS last_received_date,
 
               DATEDIFF(
@@ -133,7 +132,7 @@ exports.generateInventoryReport = async (req, res) => {
                     FROM grn_items gi
                     INNER JOIN goods_receive_notes grn
                         ON grn.id = gi.grn_no
-                    WHERE gi.item_name = mi.item_name
+                    WHERE gi.item_id = mi.item_id
                   )
               ) AS age_days,
 
@@ -145,7 +144,7 @@ exports.generateInventoryReport = async (req, res) => {
                         FROM grn_items gi
                         INNER JOIN goods_receive_notes grn
                             ON grn.id = gi.grn_no
-                        WHERE gi.item_name = mi.item_name
+                        WHERE gi.item_id = mi.item_id
                       )
                   ) <= 30
                   THEN '0-30 Days'
@@ -157,7 +156,7 @@ exports.generateInventoryReport = async (req, res) => {
                         FROM grn_items gi
                         INNER JOIN goods_receive_notes grn
                             ON grn.id = gi.grn_no
-                        WHERE gi.item_name = mi.item_name
+                        WHERE gi.item_id = mi.item_id
                       )
                   ) <= 60
                   THEN '31-60 Days'
@@ -169,7 +168,7 @@ exports.generateInventoryReport = async (req, res) => {
                         FROM grn_items gi
                         INNER JOIN goods_receive_notes grn
                             ON grn.id = gi.grn_no
-                        WHERE gi.item_name = mi.item_name
+                        WHERE gi.item_id = mi.item_id
                       )
                   ) <= 90
                   THEN '61-90 Days'
@@ -181,7 +180,7 @@ exports.generateInventoryReport = async (req, res) => {
           ORDER BY age_days DESC;
         `;
 
-        params = [from_date, to_date];
+        params = [];
         break;
 
       /**
@@ -205,7 +204,7 @@ exports.generateInventoryReport = async (req, res) => {
                     FROM grn_items gi
                     INNER JOIN goods_receive_notes grn
                         ON grn.id = gi.grn_no
-                    WHERE gi.item_name = mi.item_name
+                    WHERE gi.item_id = mi.item_id
                     AND DATE(grn.received_date) BETWEEN ? AND ?
                   ),0
                 )
@@ -214,7 +213,7 @@ exports.generateInventoryReport = async (req, res) => {
                   (
                     SELECT SUM(ini.quantity)
                     FROM \`issue_note-items\` ini
-                    WHERE ini.item_name = mi.item_name
+                    WHERE ini.item_id = mi.item_id
                   ),0
                 )
               ) AS available_qty,
@@ -236,6 +235,12 @@ exports.generateInventoryReport = async (req, res) => {
        * ==========================================================
        */
       case "GRN_REPORT":
+        let grnWhereClause = "WHERE DATE(grn.received_date) BETWEEN ? AND ?";
+        params = [from_date, to_date];
+        if (supplier_name && supplier_name !== "ALL") {
+          grnWhereClause += " AND grn.supplier_name = ?";
+          params.push(supplier_name);
+        }
         query = `
           SELECT
               grn.id AS grn_id,
@@ -245,16 +250,15 @@ exports.generateInventoryReport = async (req, res) => {
               mi.item_sub_category,
               gi.item_name,
               mi.size,
-              gi.quantity,
-              gi.rate,
-              gi.amount
+              CAST(gi.quantity AS DECIMAL(10,2)) AS quantity,
+              CAST(gi.rate AS DECIMAL(10,2)) AS rate,
+              CAST(gi.amount AS DECIMAL(15,2)) AS amount
           FROM goods_receive_notes grn
           INNER JOIN grn_items gi ON gi.grn_no = grn.id
           LEFT JOIN main_inventory mi ON mi.item_name = gi.item_name
-          WHERE DATE(grn.received_date) BETWEEN ? AND ?
+          ${grnWhereClause}
           ORDER BY grn.received_date DESC
         `;
-        params = [from_date, to_date];
         break;
       /**
        * ==========================================================
@@ -380,18 +384,18 @@ exports.generateInventoryReport = async (req, res) => {
 
     const [rows] = await pool.promise().query(query, params);
 
+    const formatCurrency = (val) => {
+      let parts = Number(val).toFixed(2).split(".");
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return `LKR ${parts.join(".")}`;
+    };
+
     // Calculate grand total only for stock value report
     if (report_type === "STOCK_VALUE") {
       const grand_total = rows.reduce(
         (sum, row) => sum + Number(row.stock_value || 0),
         0
       );
-
-      const formatCurrency = (val) => {
-        let parts = Number(val).toFixed(2).split(".");
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-        return `LKR ${parts.join(".")}`;
-      };
 
       const formattedRows = rows.map(row => ({
         ...row,
@@ -410,13 +414,40 @@ exports.generateInventoryReport = async (req, res) => {
         stock_value: formatCurrency(grand_total)
       });
 
-      return res.status(200).json({
-        report_type,
-        from_date,
-        to_date,
-        grand_total,
-        data: formattedRows
+      return res.status(200).json({ data: formattedRows, grand_total: formatCurrency(grand_total) });
+    } else if (report_type === "GRN_REPORT") {
+      const grand_total = rows.reduce(
+        (sum, row) => sum + Number(row.amount || 0),
+        0
+      );
+
+      const formattedRows = rows.map(row => ({
+        ...row,
+        rate: row.rate ? formatCurrency(row.rate) : "LKR 0.00",
+        amount: row.amount ? formatCurrency(row.amount) : "LKR 0.00"
+      }));
+
+      formattedRows.push({
+        grn_id: "TOTAL",
+        supplier_name: "",
+        received_date: "",
+        item_category: "",
+        item_sub_category: "",
+        item_name: "",
+        size: "",
+        quantity: null,
+        rate: null,
+        amount: formatCurrency(grand_total)
       });
+
+      return res.status(200).json({ data: formattedRows, grand_total: formatCurrency(grand_total) });
+    } else if (report_type === "STOCK_AGING") {
+      const formattedRows = rows.map(row => ({
+        ...row,
+        last_received_date: row.last_received_date ? new Date(row.last_received_date).toLocaleDateString() : "No GRN History",
+        age_days: row.age_days !== null ? row.age_days : "N/A"
+      }));
+      return res.status(200).json({ data: formattedRows });
     }
 
     return res.status(200).json({
