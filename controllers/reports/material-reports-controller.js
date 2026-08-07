@@ -2,7 +2,7 @@ const pool = require('../../sql-connection');
 
 exports.generateInventoryReport = async (req, res) => {
   try {
-    const { report_type, from_date, to_date, item_category, item_sub_category, supplier_name } = req.body;
+    const { report_type, from_date, to_date, item_category, item_sub_category, supplier_name, item_id } = req.body;
 
     if (!report_type) {
       return res.status(400).json({
@@ -205,7 +205,6 @@ exports.generateInventoryReport = async (req, res) => {
                     INNER JOIN goods_receive_notes grn
                         ON grn.id = gi.grn_no
                     WHERE gi.item_id = mi.item_id
-                    AND DATE(grn.received_date) BETWEEN ? AND ?
                   ),0
                 )
                 -
@@ -227,7 +226,7 @@ exports.generateInventoryReport = async (req, res) => {
           ORDER BY available_qty ASC;
         `;
 
-        params = [from_date, to_date];
+        params = [];
         break;
       /**
        * ==========================================================
@@ -284,53 +283,21 @@ exports.generateInventoryReport = async (req, res) => {
         params = [from_date, to_date];
         break;
 
-      case "GRN_VALUE_WEEKLY":
-        query = `
-          SELECT
-              YEARWEEK(grn.received_date, 1) AS grn_week,
-              MIN(DATE(grn.received_date)) AS week_start_date,
-              MAX(DATE(grn.received_date)) AS week_end_date,
-              mi.item_category,
-              mi.item_sub_category,
-              gi.item_name,
-              mi.size,
-              SUM(gi.quantity) AS total_qty,
-              SUM(gi.amount) AS total_value
-          FROM goods_receive_notes grn
-          INNER JOIN grn_items gi ON gi.grn_no = grn.id
-          LEFT JOIN main_inventory mi ON mi.item_name = gi.item_name
-          WHERE DATE(grn.received_date) BETWEEN ? AND ?
-          GROUP BY YEARWEEK(grn.received_date, 1), mi.item_category, mi.item_sub_category, gi.item_name, mi.size
-          ORDER BY grn_week ASC
-        `;
-        params = [from_date, to_date];
-        break;
 
-      case "GRN_VALUE_MONTHLY":
-        query = `
-          SELECT
-              DATE_FORMAT(grn.received_date, '%Y-%m') AS grn_month,
-              mi.item_category,
-              mi.item_sub_category,
-              gi.item_name,
-              mi.size,
-              SUM(gi.quantity) AS total_qty,
-              SUM(gi.amount) AS total_value
-          FROM goods_receive_notes grn
-          INNER JOIN grn_items gi ON gi.grn_no = grn.id
-          LEFT JOIN main_inventory mi ON mi.item_name = gi.item_name
-          WHERE DATE(grn.received_date) BETWEEN ? AND ?
-          GROUP BY DATE_FORMAT(grn.received_date, '%Y-%m'), mi.item_category, mi.item_sub_category, gi.item_name, mi.size
-          ORDER BY grn_month ASC
-        `;
-        params = [from_date, to_date];
-        break;
       /**
       * ==========================================================
       * Total material usage across jobs
       * ==========================================================
       */
       case "MATERIAL_CONSUMPTION_SUMMARY":
+        let matSummaryWhere = "WHERE jm.status = 'ACTIVE' AND DATE(j.job_open_date) BETWEEN ? AND ?";
+        params = [from_date, to_date];
+
+        if (item_id && item_id !== "ALL") {
+          matSummaryWhere += " AND mi.item_id = ?";
+          params.push(item_id);
+        }
+
         query = `
           SELECT
               mi.item_category,
@@ -338,14 +305,16 @@ exports.generateInventoryReport = async (req, res) => {
               jm.material_name AS item_name,
               mi.size,
               jm.material_type,
-              SUM(CAST(jm.quantity AS DECIMAL(10,2))) AS total_consumed
+              CAST(SUM(CAST(jm.quantity AS DECIMAL(10,2))) AS DECIMAL(10,2)) AS total_consumed,
+              CAST(mi.rate AS DECIMAL(10,2)) AS unit_rate,
+              CAST((SUM(CAST(jm.quantity AS DECIMAL(10,2))) * CAST(mi.rate AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS total_value
           FROM job_materials jm
-          LEFT JOIN main_inventory mi ON mi.item_name = jm.material_name
-          WHERE jm.status = 'ACTIVE'
-          GROUP BY mi.item_category, mi.item_sub_category, jm.material_name, mi.size, jm.material_type
+          LEFT JOIN jobs j ON j.job_id = jm.job_id
+          LEFT JOIN main_inventory mi ON mi.item_id = jm.item_id
+          ${matSummaryWhere}
+          GROUP BY mi.item_category, mi.item_sub_category, jm.material_name, mi.size, jm.material_type, mi.rate
           ORDER BY total_consumed DESC
         `;
-        params = [];
         break;
       /**
       * ==========================================================
@@ -438,6 +407,28 @@ exports.generateInventoryReport = async (req, res) => {
         quantity: null,
         rate: null,
         amount: formatCurrency(grand_total)
+      });
+
+      return res.status(200).json({ data: formattedRows, grand_total: formatCurrency(grand_total) });
+    } else if (report_type === "MATERIAL_CONSUMPTION_SUMMARY") {
+      const grand_total = rows.reduce(
+        (sum, row) => sum + Number(row.total_value || 0),
+        0
+      );
+
+      const formattedRows = rows.map(row => ({
+        item_name: row.size ? `${row.item_sub_category || ''} ${row.item_name} (${row.size})` : `${row.item_sub_category || ''} ${row.item_name}`,
+        total_consumed: row.total_consumed,
+        unit_rate: row.unit_rate ? formatCurrency(row.unit_rate) : "LKR 0.00",
+        total_value: row.total_value ? formatCurrency(row.total_value) : "LKR 0.00"
+      }));
+
+      // Append Total Row
+      formattedRows.push({
+        item_name: "TOTAL",
+        total_consumed: null,
+        unit_rate: null,
+        total_value: formatCurrency(grand_total)
       });
 
       return res.status(200).json({ data: formattedRows, grand_total: formatCurrency(grand_total) });
