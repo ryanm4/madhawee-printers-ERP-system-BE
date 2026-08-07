@@ -355,7 +355,11 @@ exports.generateInventoryReport = async (req, res) => {
         0
       );
 
-      const formatCurrency = (val) => `LKR ${Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const formatCurrency = (val) => {
+        let parts = Number(val).toFixed(2).split(".");
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        return `LKR ${parts.join(".")}`;
+      };
 
       const formattedRows = rows.map(row => ({
         ...row,
