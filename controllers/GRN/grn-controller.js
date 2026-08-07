@@ -618,7 +618,7 @@ exports.deleteGRN = (req, res) => {
 
       // 1️⃣ Fetch GRN items to subtract their quantities from inventory
       connection.query(
-        "SELECT item_name, quantity FROM grn_items WHERE grn_no = ?",
+        "SELECT item_id, quantity FROM grn_items WHERE grn_no = ?",
         [id],
         async (err, grnItems) => {
           if (err) {
@@ -635,8 +635,8 @@ exports.deleteGRN = (req, res) => {
                 connection.query(
                   `UPDATE main_inventory 
                    SET quantity = quantity - ?, updated_on = NOW() 
-                   WHERE item_name = ?`,
-                  [Number(item.quantity || 0), item.item_name],
+                   WHERE item_id = ?`,
+                  [Number(item.quantity || 0), item.item_id],
                   err => (err ? reject(err) : resolve())
                 );
               });

@@ -65,6 +65,8 @@ exports.generateInventoryReport = async (req, res) => {
               item_id,
               item_name,
               item_category,
+              item_sub_category,
+              size,
 
               CAST(quantity AS DECIMAL(10,2)) AS quantity,
               CAST(rate AS DECIMAL(10,2)) AS unit_rate,
