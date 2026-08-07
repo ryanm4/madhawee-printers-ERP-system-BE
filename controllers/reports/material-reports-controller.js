@@ -79,9 +79,9 @@ exports.generateInventoryReport = async (req, res) => {
               size,
 
               CAST(quantity AS DECIMAL(10,2)) AS quantity,
-              CAST(unit_price AS DECIMAL(10,2)) AS unit_rate,
+              CAST(rate AS DECIMAL(10,2)) AS unit_rate,
 
-              CAST((CAST(quantity AS DECIMAL(10,2)) * CAST(unit_price AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS stock_value
+              CAST((CAST(quantity AS DECIMAL(10,2)) * CAST(rate AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS stock_value
 
           FROM main_inventory
           ${stockWhereClause}
@@ -306,13 +306,13 @@ exports.generateInventoryReport = async (req, res) => {
               mi.size,
               '' AS material_type,
               CAST(SUM(CAST(ini.quantity AS DECIMAL(10,2))) AS DECIMAL(10,2)) AS total_consumed,
-              CAST(mi.unit_price AS DECIMAL(10,2)) AS unit_rate,
-              CAST((SUM(CAST(ini.quantity AS DECIMAL(10,2))) * CAST(mi.unit_price AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS total_value
+              CAST(mi.rate AS DECIMAL(10,2)) AS unit_rate,
+              CAST((SUM(CAST(ini.quantity AS DECIMAL(10,2))) * CAST(mi.rate AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS total_value
           FROM \`issue_note-items\` ini
           LEFT JOIN \`issue-notes\` in_h ON in_h.id = ini.issue_note_id
           LEFT JOIN main_inventory mi ON mi.item_id = ini.item_id OR (ini.item_id IS NULL AND mi.item_name = ini.item_name)
           ${matSummaryWhere}
-          GROUP BY mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_price
+          GROUP BY mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.rate
           ORDER BY total_consumed DESC
         `;
         break;
@@ -339,13 +339,13 @@ exports.generateInventoryReport = async (req, res) => {
               mi.size,
               '' AS material_type,
               CAST(SUM(CAST(ini.quantity AS DECIMAL(10,2))) AS DECIMAL(10,2)) AS total_consumed,
-              CAST(mi.unit_price AS DECIMAL(10,2)) AS unit_rate,
-              CAST((SUM(CAST(ini.quantity AS DECIMAL(10,2))) * CAST(mi.unit_price AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS total_value
+              CAST(mi.rate AS DECIMAL(10,2)) AS unit_rate,
+              CAST((SUM(CAST(ini.quantity AS DECIMAL(10,2))) * CAST(mi.rate AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS total_value
           FROM \`issue_note-items\` ini
           LEFT JOIN \`issue-notes\` in_h ON in_h.id = ini.issue_note_id
           LEFT JOIN main_inventory mi ON mi.item_id = ini.item_id OR (ini.item_id IS NULL AND mi.item_name = ini.item_name)
           ${matByJobWhere}
-          GROUP BY mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_price
+          GROUP BY mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.rate
           ORDER BY total_consumed DESC
         `;
         break;

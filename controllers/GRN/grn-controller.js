@@ -257,7 +257,7 @@ exports.createGRN = (req, res) => {
 
                 const existing = await new Promise((resolve, reject) => {
                   connection.query(
-                    "SELECT quantity, unit_price FROM main_inventory WHERE item_id = ?",
+                    "SELECT quantity, rate FROM main_inventory WHERE item_id = ?",
                     [item.item_id],
                     (err, results) => {
                       if (err) return reject(err);
@@ -268,7 +268,7 @@ exports.createGRN = (req, res) => {
 
                 if (existing) {
                   const oldQty = Number(existing.quantity) || 0;
-                  const oldRate = Number(existing.unit_price) || 0;
+                  const oldRate = Number(existing.rate) || 0;
 
                   const grnQty = Number(item.quantity);
                   const grnRate = Number(item.rate);
@@ -286,13 +286,12 @@ exports.createGRN = (req, res) => {
                                   `
                                   UPDATE main_inventory
                                   SET quantity = ?, 
-                                      unit_price = ?, 
                                       rate = ?,
                                       updated_on = NOW(),
                                       updated_by = ?
                                   WHERE item_id = ?
                                   `,
-                                  [newQty, newRate, newRate, created_by, item.item_id],
+                                  [newQty, newRate, created_by, item.item_id],
                                   (err) => {
                                     if (err) return reject(err);
                                     resolve();
@@ -308,16 +307,14 @@ exports.createGRN = (req, res) => {
                       INSERT INTO main_inventory (
                         item_name,
                         quantity,
-                        unit_price,
                         rate,
                         created_on,
                         created_by
-                      ) VALUES (?, ?, ?, ?, NOW(), ?)
+                      ) VALUES (?, ?, ?, NOW(), ?)
                       `,
                       [
                         item.item_name,
                         item.quantity,
-                        item.rate,
                         item.rate,
                         created_by
                       ],
@@ -499,7 +496,7 @@ exports.updateGRN = (req, res) => {
                           for (const item of items) {
                             const existing = await new Promise((resolve, reject) => {
                               connection.query(
-                                "SELECT quantity, unit_price FROM main_inventory WHERE item_id = ?",
+                                "SELECT quantity, rate FROM main_inventory WHERE item_id = ?",
                                 [item.item_id],
                                 (err, results) => {
                                   if (err) return reject(err);
@@ -510,7 +507,7 @@ exports.updateGRN = (req, res) => {
 
                             if (existing) {
                               const oldQty = Number(existing.quantity) || 0;
-                              const oldRate = Number(existing.unit_price) || 0;
+                              const oldRate = Number(existing.rate) || 0;
 
                               const grnQty = Number(item.quantity);
                               const grnRate = Number(item.rate);
@@ -528,13 +525,12 @@ exports.updateGRN = (req, res) => {
                                   `
                                   UPDATE main_inventory
                                   SET quantity = ?, 
-                                      unit_price = ?, 
                                       rate = ?,
                                       updated_on = NOW(),
                                       updated_by = ?
                                   WHERE item_id = ?
                                   `,
-                                  [newQty, newRate, newRate, updated_by, item.item_id],
+                                  [newQty, newRate, updated_by, item.item_id],
                                   (err) => {
                                     if (err) return reject(err);
                                     resolve();
@@ -550,16 +546,14 @@ exports.updateGRN = (req, res) => {
                                   INSERT INTO main_inventory (
                                     item_name,
                                     quantity,
-                                    unit_price,
                                     rate,
                                     created_on,
                                     created_by
-                                  ) VALUES (?, ?, ?, ?, NOW(), ?)
+                                  ) VALUES (?, ?, ?, NOW(), ?)
                                   `,
                                   [
                                     item.item_name,
                                     item.quantity,
-                                    item.rate,
                                     item.rate,
                                     updated_by
                                   ],
