@@ -80,7 +80,7 @@ exports.generateInventoryReport = async (req, res) => {
               CAST(quantity AS DECIMAL(10,2)) AS quantity,
               CAST(rate AS DECIMAL(10,2)) AS unit_rate,
 
-              (CAST(quantity AS DECIMAL(10,2)) * CAST(rate AS DECIMAL(10,2))) AS stock_value
+              CAST((CAST(quantity AS DECIMAL(10,2)) * CAST(rate AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS stock_value
 
           FROM main_inventory
           ${stockWhereClause}
@@ -355,15 +355,21 @@ exports.generateInventoryReport = async (req, res) => {
         0
       );
 
+      const formattedRows = rows.map(row => ({
+        ...row,
+        unit_rate: row.unit_rate ? `LKR ${Number(row.unit_rate).toFixed(2)}` : "LKR 0.00",
+        stock_value: row.stock_value ? `LKR ${Number(row.stock_value).toFixed(2)}` : "LKR 0.00"
+      }));
+
       // Append Total Row for Table and Export
-      rows.push({
+      formattedRows.push({
         item_category: "TOTAL",
         item_sub_category: "",
         item_name: "",
         size: "",
         quantity: null,
         unit_rate: null,
-        stock_value: grand_total
+        stock_value: `LKR ${grand_total.toFixed(2)}`
       });
 
       return res.status(200).json({
@@ -371,7 +377,7 @@ exports.generateInventoryReport = async (req, res) => {
         from_date,
         to_date,
         grand_total,
-        data: rows
+        data: formattedRows
       });
     }
 
