@@ -136,7 +136,7 @@ exports.updateInventoryItem = (req, res, next) => {
     reorder_level,
     status,
     remarks,
-    unit_price,
+    rate,
     updated_by,
   } = req.body;
 
@@ -154,7 +154,7 @@ exports.updateInventoryItem = (req, res, next) => {
       reorder_level = ?,
       status = ?,
       remarks = ?,
-      unit_price = ?,
+      rate = ?,
       updated_on = NOW(),
       updated_by = ?
     WHERE item_id = ?
