@@ -2,7 +2,7 @@ const pool = require('../../sql-connection');
 
 exports.generateInventoryReport = async (req, res) => {
   try {
-    const { report_type, from_date, to_date, item_category, item_sub_category, supplier_name, item_id } = req.body;
+    const { report_type, from_date, to_date, item_category, item_sub_category, supplier_name, item_id, job_id } = req.body;
 
     if (!report_type) {
       return res.status(400).json({
@@ -79,9 +79,9 @@ exports.generateInventoryReport = async (req, res) => {
               size,
 
               CAST(quantity AS DECIMAL(10,2)) AS quantity,
-              CAST(rate AS DECIMAL(10,2)) AS unit_rate,
+              CAST(unit_price AS DECIMAL(10,2)) AS unit_rate,
 
-              CAST((CAST(quantity AS DECIMAL(10,2)) * CAST(rate AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS stock_value
+              CAST((CAST(quantity AS DECIMAL(10,2)) * CAST(unit_price AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS stock_value
 
           FROM main_inventory
           ${stockWhereClause}
@@ -306,13 +306,13 @@ exports.generateInventoryReport = async (req, res) => {
               mi.size,
               '' AS material_type,
               CAST(SUM(CAST(ini.quantity AS DECIMAL(10,2))) AS DECIMAL(10,2)) AS total_consumed,
-              CAST(mi.rate AS DECIMAL(10,2)) AS unit_rate,
-              CAST((SUM(CAST(ini.quantity AS DECIMAL(10,2))) * CAST(mi.rate AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS total_value
+              CAST(mi.unit_price AS DECIMAL(10,2)) AS unit_rate,
+              CAST((SUM(CAST(ini.quantity AS DECIMAL(10,2))) * CAST(mi.unit_price AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS total_value
           FROM \`issue_note-items\` ini
           LEFT JOIN \`issue-notes\` in_h ON in_h.id = ini.issue_note_id
           LEFT JOIN main_inventory mi ON mi.item_id = ini.item_id OR (ini.item_id IS NULL AND mi.item_name = ini.item_name)
           ${matSummaryWhere}
-          GROUP BY mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.rate
+          GROUP BY mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_price
           ORDER BY total_consumed DESC
         `;
         break;
@@ -323,25 +323,31 @@ exports.generateInventoryReport = async (req, res) => {
       */
 
       case "MATERIAL_CONSUMPTION_BY_JOB":
+        let matByJobWhere = "WHERE DATE(in_h.date) BETWEEN ? AND ?";
+        params = [from_date, to_date];
+
+        if (job_id && job_id !== "ALL") {
+          matByJobWhere += " AND in_h.job_id = ?";
+          params.push(job_id);
+        }
+
         query = `
           SELECT
-              jm.job_id,
-              j.job_name,
               mi.item_category,
               mi.item_sub_category,
-              jm.material_name AS item_name,
+              COALESCE(mi.item_name, ini.item_name) AS item_name,
               mi.size,
-              jm.material_type,
-              SUM(CAST(jm.quantity AS DECIMAL(10,2))) AS consumed_qty
-          FROM job_materials jm
-          LEFT JOIN jobs j ON j.job_id = jm.job_id
-          LEFT JOIN main_inventory mi ON mi.item_name = jm.material_name
-          WHERE jm.status = 'ACTIVE'
-          AND j.job_open_date BETWEEN ? AND ?
-          GROUP BY jm.job_id, mi.item_category, mi.item_sub_category, jm.material_name, mi.size, jm.material_type
-          ORDER BY jm.job_id
+              '' AS material_type,
+              CAST(SUM(CAST(ini.quantity AS DECIMAL(10,2))) AS DECIMAL(10,2)) AS total_consumed,
+              CAST(mi.unit_price AS DECIMAL(10,2)) AS unit_rate,
+              CAST((SUM(CAST(ini.quantity AS DECIMAL(10,2))) * CAST(mi.unit_price AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS total_value
+          FROM \`issue_note-items\` ini
+          LEFT JOIN \`issue-notes\` in_h ON in_h.id = ini.issue_note_id
+          LEFT JOIN main_inventory mi ON mi.item_id = ini.item_id OR (ini.item_id IS NULL AND mi.item_name = ini.item_name)
+          ${matByJobWhere}
+          GROUP BY mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_price
+          ORDER BY total_consumed DESC
         `;
-        params = [from_date, to_date];
         break;
 
       default:
@@ -407,32 +413,32 @@ exports.generateInventoryReport = async (req, res) => {
         quantity: null,
         rate: null,
         amount: formatCurrency(grand_total)
-      });
+    } else if (
+        report_type === "GRN_REPORT" || 
+        report_type === "MATERIAL_CONSUMPTION_SUMMARY" || 
+        report_type === "MATERIAL_CONSUMPTION_BY_JOB"
+      ) {
+        const formattedRows = rows.map(row => ({
+          item_name: row.size ? `${row.item_sub_category || ''} ${row.item_name} (${row.size})` : `${row.item_sub_category || ''} ${row.item_name}`,
+          total_consumed: row.total_consumed,
+          unit_rate: formatCurrency(row.unit_rate),
+          total_value: formatCurrency(row.total_value)
+        }));
 
-      return res.status(200).json({ data: formattedRows, grand_total: formatCurrency(grand_total) });
-    } else if (report_type === "MATERIAL_CONSUMPTION_SUMMARY") {
-      const grand_total = rows.reduce(
-        (sum, row) => sum + Number(row.total_value || 0),
-        0
-      );
+        const total_value = rows.reduce(
+          (sum, row) => sum + Number(row.total_value || 0),
+          0
+        );
 
-      const formattedRows = rows.map(row => ({
-        item_name: row.size ? `${row.item_sub_category || ''} ${row.item_name} (${row.size})` : `${row.item_sub_category || ''} ${row.item_name}`,
-        total_consumed: row.total_consumed,
-        unit_rate: row.unit_rate ? formatCurrency(row.unit_rate) : "LKR 0.00",
-        total_value: row.total_value ? formatCurrency(row.total_value) : "LKR 0.00"
-      }));
+        formattedRows.push({
+          item_name: "TOTAL",
+          total_consumed: null,
+          unit_rate: null,
+          total_value: formatCurrency(total_value)
+        });
 
-      // Append Total Row
-      formattedRows.push({
-        item_name: "TOTAL",
-        total_consumed: null,
-        unit_rate: null,
-        total_value: formatCurrency(grand_total)
-      });
-
-      return res.status(200).json({ data: formattedRows, grand_total: formatCurrency(grand_total) });
-    } else if (report_type === "STOCK_AGING") {
+        return res.status(200).json(formattedRows);
+      } else if (report_type === "STOCK_AGING") {
       const formattedRows = rows.map(row => ({
         ...row,
         last_received_date: row.last_received_date ? new Date(row.last_received_date).toLocaleDateString() : "No GRN History",
