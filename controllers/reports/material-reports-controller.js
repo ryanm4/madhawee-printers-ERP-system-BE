@@ -290,7 +290,7 @@ exports.generateInventoryReport = async (req, res) => {
       * ==========================================================
       */
       case "MATERIAL_CONSUMPTION_SUMMARY":
-        let matSummaryWhere = "WHERE jm.status = 'ACTIVE' AND DATE(j.created_on) BETWEEN ? AND ?";
+        let matSummaryWhere = "WHERE LOWER(jm.status) IN ('active', 'used') AND DATE(j.created_on) BETWEEN ? AND ?";
         params = [from_date, to_date];
 
         if (item_id && item_id !== "ALL") {
