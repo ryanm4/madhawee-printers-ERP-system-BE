@@ -290,7 +290,7 @@ exports.generateInventoryReport = async (req, res) => {
       * ==========================================================
       */
       case "MATERIAL_CONSUMPTION_SUMMARY":
-        let matSummaryWhere = "WHERE jm.status = 'ACTIVE' AND DATE(j.job_open_date) BETWEEN ? AND ?";
+        let matSummaryWhere = "WHERE jm.status = 'ACTIVE' AND DATE(j.created_on) BETWEEN ? AND ?";
         params = [from_date, to_date];
 
         if (item_id && item_id !== "ALL") {
@@ -310,7 +310,7 @@ exports.generateInventoryReport = async (req, res) => {
               CAST((SUM(CAST(jm.quantity AS DECIMAL(10,2))) * CAST(mi.rate AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS total_value
           FROM job_materials jm
           LEFT JOIN jobs j ON j.job_id = jm.job_id
-          LEFT JOIN main_inventory mi ON mi.item_id = jm.item_id
+          LEFT JOIN main_inventory mi ON mi.item_name = jm.material_name
           ${matSummaryWhere}
           GROUP BY mi.item_category, mi.item_sub_category, jm.material_name, mi.size, jm.material_type, mi.rate
           ORDER BY total_consumed DESC
