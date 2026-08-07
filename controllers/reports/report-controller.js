@@ -310,7 +310,7 @@ exports.getDashboardInsights = (req, res) => {
       LEFT JOIN po_items_details pod
         ON pod.po_id = po.po_id
 
-      WHERE po.created_on BETWEEN ? AND ?
+      WHERE po.po_date BETWEEN ? AND ?
 
       GROUP BY po.currency
     `;
@@ -329,7 +329,7 @@ exports.getDashboardInsights = (req, res) => {
       /* ================= REVENUE TREND (MONTHLY) ================= */
       const trendQuery = `
         SELECT
-          DATE_FORMAT(po.created_on, '%Y-%m') AS month,
+          DATE_FORMAT(po.po_date, '%Y-%m') AS month,
           po.currency,
           IFNULL(
             SUM(
@@ -340,8 +340,8 @@ exports.getDashboardInsights = (req, res) => {
           ) AS monthly_revenue
         FROM purchase_orders po
         LEFT JOIN po_items_details pod ON pod.po_id = po.po_id
-        WHERE po.created_on BETWEEN ? AND ?
-        GROUP BY DATE_FORMAT(po.created_on, '%Y-%m'), po.currency
+        WHERE po.po_date BETWEEN ? AND ?
+        GROUP BY DATE_FORMAT(po.po_date, '%Y-%m'), po.currency
         ORDER BY month ASC
       `;
 

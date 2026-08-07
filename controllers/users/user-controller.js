@@ -5,6 +5,8 @@ const jwt = require("jsonwebtoken");
 exports.userRegistration = async (req, res, next) => {
     const { name, email, password, user_role } = req.body;
 
+    const emailValue = email || null;
+
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -19,9 +21,12 @@ exports.userRegistration = async (req, res, next) => {
 
         pool.query(
             query,
-            [name, email, hashedPassword, user_role, now, now],
+            [name, emailValue, hashedPassword, user_role, now, now],
             (err) => {
                 if (err) {
+                    if (err.code === "ER_DUP_ENTRY") {
+                        return res.status(409).json({ message: "Email already exists" });
+                    }
                     console.error("Error registering user:", err);
                     return next(err);
                 }
