@@ -1,299 +1,311 @@
-CREATE SCHEMA `erp_madhawi_db`;
+CREATE TABLE "currency_conversion" (
+  "id" int NOT NULL AUTO_INCREMENT,
+  "currency_from" varchar(10) NOT NULL,
+  "currency_to" varchar(10) NOT NULL,
+  "rate" decimal(10,4) NOT NULL,
+  "updated_at" datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY ("id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`quotations` (
-    `quote_id` INT NOT NULL AUTO_INCREMENT,
-    `customer_id` INT NOT NULL,
-    `type_id` INT NOT NULL,
-    `delivery_days` VARCHAR(45) NULL,
-    `tax_type_id` INT NOT NULL,
-    `currency` VARCHAR(45) NULL,
-    `sub_total` VARCHAR(45) NULL,
-    `no_of_items` VARCHAR(45) NULL,
-    `total_without_tax` VARCHAR(45) NULL,
-    `net_total` VARCHAR(45) NULL `contact_person` VARCHAR(45) NULL,
-    `notes` VARCHAR(45) NULL,
-    `created_on` DATETIME NULL,
-    `created_by` VARCHAR(45) NULL,
-    `updated_on` DATETIME NULL,
-    `updated_by` VARCHAR(45) NULL,
-    `status` VARCHAR(45) NULL,
-    PRIMARY KEY (`quote_id`),
-    UNIQUE INDEX `quote_id_UNIQUE` (`quote _id` ASC) VISIBLE
-  );
+CREATE TABLE "customer_contacts" (
+  "contact_id" int NOT NULL AUTO_INCREMENT,
+  "customer_id" int NOT NULL,
+  "name" varchar(255) DEFAULT NULL,
+  "email" varchar(255) DEFAULT NULL,
+  "phone" varchar(45) DEFAULT NULL,
+  PRIMARY KEY ("contact_id"),
+  KEY "customer_id" ("customer_id"),
+  CONSTRAINT "customer_contacts_ibfk_1" FOREIGN KEY ("customer_id") REFERENCES "customers" ("customer_id") ON DELETE CASCADE
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`quote_items` (
-    `item_id` INT NOT NULL AUTO_INCREMENT,
-    `quote_id` VARCHAR(45) NOT NULL,
-    `item_category` VARCHAR(45) NULL,
-    `item_description` VARCHAR(45) NULL,
-    `item_qty` INT NULL,
-    `item_unit_price` VARCHAR(45) NULL,
-    `item_unit_discount` VARCHAR(45) NULL,
-    `item_total_price` VARCHAR(45) NULL,
-    PRIMARY KEY (`item_id`)
-  );
+CREATE TABLE "customers" (
+  "customer_id" int NOT NULL AUTO_INCREMENT,
+  "company_name" text NOT NULL,
+  "customer_type" varchar(45) NOT NULL,
+  "address" varchar(255) DEFAULT NULL,
+  "phone" varchar(45) DEFAULT NULL,
+  "credit_period" varchar(45) DEFAULT NULL,
+  "email" varchar(45) DEFAULT NULL,
+  "vat_type" varchar(45) DEFAULT NULL,
+  "vat_no" varchar(45) DEFAULT NULL,
+  "logo_url" varchar(45) DEFAULT NULL,
+  "contact_person" json DEFAULT NULL,
+  "contact_person_email" varchar(45) DEFAULT NULL,
+  "contact_person_phone" varchar(45) DEFAULT NULL,
+  "created_on" datetime DEFAULT NULL,
+  "created_by" varchar(45) DEFAULT NULL,
+  "updated_on" datetime DEFAULT NULL,
+  "updated_by" varchar(45) DEFAULT NULL,
+  "status" varchar(45) DEFAULT NULL,
+  PRIMARY KEY ("customer_id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`purchase_orders` (
-    `po_id` INT NOT NULL AUTO_INCREMENT,
-    `quote_id` INT NULL,
-    `customer_id` VARCHAR(45) NULL,
-    `po_type_id` INT NULL,
-    `batch_ref` VARCHAR(45) NULL,
-    `po_date` DATETIME NULL,
-    `delivery_date` DATETIME NULL,
-    `TC_E_PR_No` VARCHAR(45) NULL `approved_on` DATETIME NULL,
-    `approved_by` VARCHAR(45) NULL,
-    `created_on` DATETIME NULL,
-    `created_by` VARCHAR(45) NULL,
-    `updated_on` DATETIME NULL,
-    `updated_by` VARCHAR(45) NULL,
-    `status` VARCHAR(45) NULL,
-    `customer_po` VARCHAR(45) NULL,
-    `po_items` VARCHAR(45) NULL,
-    `sales_ref` VARCHAR(45) NULL,
-    `currency` VARCHAR(45) NULL,
-    PRIMARY KEY (`po_id`)
-  );
+CREATE TABLE "dispatch" (
+  "dispatch_id" int NOT NULL AUTO_INCREMENT,
+  "customer_id" varchar(45) DEFAULT NULL,
+  "job_id" varchar(45) DEFAULT NULL,
+  "dispatch_note" text,
+  "dispatch_date" datetime DEFAULT NULL,
+  "dispatch_qty" varchar(45) DEFAULT NULL,
+  "no_of_bundles" varchar(45) DEFAULT NULL,
+  "description" text,
+  "delivery_address" varchar(45) DEFAULT NULL,
+  "status" varchar(45) DEFAULT NULL,
+  "created_by" varchar(45) DEFAULT NULL,
+  "created_on" datetime DEFAULT NULL,
+  "updated_by" varchar(45) DEFAULT NULL,
+  "updated_on" datetime DEFAULT NULL,
+  PRIMARY KEY ("dispatch_id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`jobs` (
-    `job_id` INT NOT NULL AUTO_INCREMENT,
-    `po_id` INT NULL,
-    `customer_id` VARCHAR(45) NULL,
-    `job_item` VARCHAR(45) NULL,
-    `job_name` VARCHAR(45) NULL,
-    `job_open_date` DATETIME NULL,
-    `product_type` VARCHAR(45) NULL,
-    `paper_type_id` VARCHAR(45) NULL,
-    `quantity` INT NULL,
-    `coating` VARCHAR(45) NULL,
-    `packing_date` DATETIME NULL,
-    `expiry_date` DATETIME NULL,
-    `description` VARCHAR(45) NULL,
-    `artwork` VARCHAR(45) NULL,
-    `remarks` VARCHAR(45) NULL,
-    `status` VARCHAR(45) NULL,
-    `completed_qty` INT ZEROFILL NOT NULL,
-    `wastage` VARCHAR(45) NULL,
-    `job_number` VARCHAR(45) NULL,
-    `job_ref_id` VARCHAR(45) NULL,
-    `old_plate_quantity` INT NULL,
-    `old_plate_status` VARCHAR(45) NULL,
-    `old_plate_remarks` VARCHAR(45) NULL,
-    `new_plate_quantity` INT NULL AFTER,
-    `new_plate_status` VARCHAR(45) NULL,
-    `new_plate_remarks` VARCHAR(45) NULL,
-    `created_on` DATETIME NULL,
-    `created_by` VARCHAR(45) NULL,
-    `updated_on` DATETIME NULL,
-    `updated_by` VARCHAR(45) NULL,
-    PRIMARY KEY (`job_id`)
-  );
+CREATE TABLE "goods_receive_notes" (
+  "id" int NOT NULL AUTO_INCREMENT,
+  "related_po" varchar(45) DEFAULT NULL,
+  "received_date" datetime DEFAULT NULL,
+  "supplier_name" varchar(45) DEFAULT NULL,
+  "stock_location" varchar(45) DEFAULT NULL,
+  "payee_name" varchar(45) DEFAULT NULL,
+  "payment_method" varchar(45) DEFAULT NULL,
+  "currency" varchar(45) DEFAULT NULL,
+  "supplier_invoice_no" varchar(45) DEFAULT NULL,
+  "remarks" text,
+  "created_on" datetime DEFAULT NULL,
+  "created_by" varchar(45) DEFAULT NULL,
+  "updated_on" datetime DEFAULT NULL,
+  "updated_by" varchar(45) DEFAULT NULL,
+  PRIMARY KEY ("id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`job_materials` (
-    `job_material_id` INT NOT NULL AUTO_INCREMENT,
-    `job_id` INT NOT NULL,
-    `item_id` INT NULL,
-    `material_type` VARCHAR(45) NULL,
-    `material_name` VARCHAR(45) NULL,
-    `material_description` VARCHAR(45) NULL,
-    `size` VARCHAR(45) NULL,
-    `quantity` VARCHAR(45) NULL,
-    `status` VARCHAR(45) NULL,
-    `remarks` VARCHAR(45) NULL,
-    PRIMARY KEY (`job_material_id`)
-  );
+CREATE TABLE "grn_items" (
+  "id" int NOT NULL AUTO_INCREMENT,
+  "grn_no" int NOT NULL,
+  "item_id" int DEFAULT NULL,
+  "item_name" varchar(45) DEFAULT NULL,
+  "quantity" int DEFAULT NULL,
+  "rate" decimal(10,2) DEFAULT NULL,
+  "amount" decimal(10,2) DEFAULT NULL,
+  "created_on" datetime DEFAULT NULL,
+  "created_by" varchar(45) DEFAULT NULL,
+  "updated_on" datetime DEFAULT NULL,
+  "updated_by" varchar(45) DEFAULT NULL,
+  PRIMARY KEY ("id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`quote_types` (
-    `type_id` INT NOT NULL AUTO_INCREMENT,
-    `type_name` VARCHAR(45) NULL,
-    PRIMARY KEY (`type_id`)
-  );
+CREATE TABLE "issue_note-items" (
+  "id" int NOT NULL AUTO_INCREMENT,
+  "issue_note_id" int DEFAULT NULL,
+  "item_name" text,
+  "quantity" decimal(10,2) DEFAULT NULL,
+  "item_id" int DEFAULT NULL,
+  PRIMARY KEY ("id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`tax_types` (
-    `tax_id` INT NOT NULL AUTO_INCREMENT,
-    `tax_type_name` VARCHAR(45) NULL,
-    PRIMARY KEY (`tax_id`)
-  );
+CREATE TABLE "issue-notes" (
+  "id" int NOT NULL AUTO_INCREMENT,
+  "job_id" varchar(45) DEFAULT NULL,
+  "date" datetime DEFAULT NULL,
+  "remarks" text,
+  "collector_name" varchar(45) DEFAULT NULL,
+  "created_on" datetime DEFAULT NULL,
+  "created_by" varchar(45) DEFAULT NULL,
+  "updated_on" datetime DEFAULT NULL,
+  "updated_by" varchar(45) DEFAULT NULL,
+  PRIMARY KEY ("id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`paper_types` (
-    `paper_id` INT NOT NULL AUTO_INCREMENT,
-    `paper_type_name` VARCHAR(45) NULL,
-    PRIMARY KEY (`paper_id`)
-  );
+CREATE TABLE "job_ink_data" (
+  "id" int NOT NULL AUTO_INCREMENT,
+  "job_id" varchar(45) DEFAULT NULL,
+  "ink" varchar(45) DEFAULT NULL,
+  "quantity" varchar(45) DEFAULT NULL,
+  "status" varchar(45) DEFAULT NULL,
+  "remarks" varchar(45) DEFAULT NULL,
+  PRIMARY KEY ("id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`products_types` (
-    `product_id` INT NOT NULL AUTO_INCREMENT,
-    `product_name` VARCHAR(45) NULL,
-    PRIMARY KEY (`product_id`)
-  );
+CREATE TABLE "job_materials" (
+  "job_material_id" int NOT NULL AUTO_INCREMENT,
+  "job_id" int NOT NULL,
+  "item_id" int DEFAULT NULL,
+  "material_type" varchar(45) DEFAULT NULL,
+  "material_name" varchar(45) DEFAULT NULL,
+  "material_description" varchar(45) DEFAULT NULL,
+  "size" varchar(45) DEFAULT NULL,
+  "quantity" varchar(45) DEFAULT NULL,
+  "status" varchar(45) DEFAULT NULL,
+  "remarks" varchar(45) DEFAULT NULL,
+  PRIMARY KEY ("job_material_id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`main_inventory` (
-    `item_id` INT NOT NULL AUTO_INCREMENT,
-    `item_category` VARCHAR(45) NULL,
-    `item_sub_category` VARCHAR(45) NULL,
-    `item_name` VARCHAR(45) NULL,
-    `size` VARCHAR(45) NULL,
-    `height` VARCHAR(45) NULL,
-    `width` VARCHAR(45) NULL,
-    `quantity` VARCHAR(45) NULL,
-    `unit_of_measure` VARCHAR(45) NULL,
-    `reorder_level` VARCHAR(45) NULL,
-    `status` VARCHAR(45) NULL,
-    `remarks` VARCHAR(45) NULL,
-    `created_on` DATETIME NULL,
-    `created_by` VARCHAR(45) NULL,
-    `updated_on` DATETIME NULL,
-    `updated_by` VARCHAR(45) NULL,
-    PRIMARY KEY (`item_id`)
-  );
+CREATE TABLE "jobs" (
+  "job_id" int NOT NULL AUTO_INCREMENT,
+  "po_id" int DEFAULT NULL,
+  "customer_id" varchar(45) DEFAULT NULL,
+  "job_item" text,
+  "job_name" text,
+  "job_open_date" datetime DEFAULT NULL,
+  "product_type" varchar(45) DEFAULT NULL,
+  "paper_type_id" varchar(45) DEFAULT NULL,
+  "quantity" int DEFAULT NULL,
+  "completed_qty" int DEFAULT NULL,
+  "coating" varchar(45) DEFAULT NULL,
+  "packing_date" text,
+  "expiry_date" text,
+  "description" text,
+  "artwork" varchar(45) DEFAULT NULL,
+  "remarks" text,
+  "status" varchar(45) DEFAULT NULL,
+  "wastage" varchar(45) DEFAULT NULL,
+  "job_number" varchar(45) DEFAULT NULL,
+  "job_ref_id" varchar(45) DEFAULT NULL,
+  "old_plate_quantity" int DEFAULT NULL,
+  "old_plate_status" varchar(45) DEFAULT NULL,
+  "old_plate_remarks" varchar(45) DEFAULT NULL,
+  "new_plate_quantity" int DEFAULT NULL,
+  "new_plate_status" varchar(45) DEFAULT NULL,
+  "new_plate_remarks" varchar(45) DEFAULT NULL,
+  "order_received_date" datetime DEFAULT NULL,
+  "created_on" datetime DEFAULT NULL,
+  "created_by" varchar(45) DEFAULT NULL,
+  "updated_on" datetime DEFAULT NULL,
+  "updated_by" varchar(45) DEFAULT NULL,
+  PRIMARY KEY ("job_id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`customers` (
-    `customer_id` INT NOT NULL AUTO_INCREMENT,
-    `company_name` VARCHAR(255) NOT NULL,
-    `customer_type` VARCHAR(45) NOT NULL,
-    `address` VARCHAR(45) NULL,
-    `phone` VARCHAR(45) NULL,
-    `email` VARCHAR(45) NULL,
-    `vat_type` VARCHAR(45) NULL,
-    `vat_no` VARCHAR(45) NULL,
-    `credit_period` VARCHAR(45) NULL,
-    `logo_url` VARCHAR(45) NULL,
-    `contact_person` VARCHAR(45) NULL,
-    `contact_person_email` VARCHAR(45) NULL,
-    `contact_person_phone` VARCHAR(45) NULL,
-    `created_on` DATETIME NULL,
-    `created_by` VARCHAR(45) NULL,
-    `updated_on` DATETIME NULL,
-    `updated_by` VARCHAR(45) NULL,
-    `status` VARCHAR(45) NULL,
-    PRIMARY KEY (`customer_id`)
-  );
+CREATE TABLE "main_inventory" (
+  "item_id" int NOT NULL AUTO_INCREMENT,
+  "item_category" varchar(45) DEFAULT NULL,
+  "item_sub_category" varchar(45) DEFAULT NULL,
+  "item_name" varchar(45) DEFAULT NULL,
+  "unit_price" varchar(45) DEFAULT NULL,
+  "size" varchar(45) DEFAULT NULL,
+  "quantity" decimal(15,2) DEFAULT NULL,
+  "unit_of_measure" varchar(45) DEFAULT NULL,
+  "reorder_level" int DEFAULT NULL,
+  "status" varchar(45) DEFAULT NULL,
+  "remarks" text,
+  "created_on" datetime DEFAULT NULL,
+  "created_by" varchar(45) DEFAULT NULL,
+  "updated_on" datetime DEFAULT NULL,
+  "updated_by" varchar(45) DEFAULT NULL,
+  "width" varchar(45) DEFAULT NULL,
+  "height" varchar(45) DEFAULT NULL,
+  "rate" varchar(45) DEFAULT NULL,
+  PRIMARY KEY ("item_id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`dispatch` (
-    `dispatch_id` INT NOT NULL AUTO_INCREMENT,
-    `customer_id` VARCHAR(45) NULL,
-    `job_id` VARCHAR(45) NULL,
-    `dispatch_note` VARCHAR(45) NULL,
-    `dispatch_date` DATETIME NULL,
-    `dispatch_qty` VARCHAR(45) NULL,
-    `no_of_bundles` VARCHAR(45) NULL,
-    `description` VARCHAR(45) NULL,
-    `delivery_address` VARCHAR(45) NULL,
-    `status` VARCHAR(45) NULL,
-    `created_by` VARCHAR(45) NULL,
-    `created_on` DATETIME NULL,
-    `updated_by` VARCHAR(45) NULL,
-    `updated_on` DATETIME NULL,
-    PRIMARY KEY (`dispatch_id`)
-  );
+CREATE TABLE "paper_coating_data" (
+  "id" int NOT NULL AUTO_INCREMENT,
+  "job_id" int DEFAULT NULL,
+  "paper" varchar(45) DEFAULT NULL,
+  "coating" varchar(45) DEFAULT NULL,
+  "delivery_date" datetime DEFAULT NULL,
+  PRIMARY KEY ("id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`po_items_details` (
-    `po_item_id` INT NOT NULL AUTO_INCREMENT,
-    `po_id` VARCHAR(45) NULL,
-    `item_code` VARCHAR(45) NULL,
-    `description` VARCHAR(45) NULL,
-    `quantity` VARCHAR(45) NULL,
-    `uom` VARCHAR(45) NULL,
-    `price` VARCHAR(45) NULL,
-    PRIMARY KEY (`po_item_id`)
-  );
+CREATE TABLE "paper_types" (
+  "paper_id" int NOT NULL AUTO_INCREMENT,
+  "paper_type_name" varchar(45) DEFAULT NULL,
+  PRIMARY KEY ("paper_id")
+)
+CREATE TABLE "po_items_details" (
+  "po_item_id" int NOT NULL AUTO_INCREMENT,
+  "po_id" varchar(45) DEFAULT NULL,
+  "item_code" varchar(45) DEFAULT NULL,
+  "description" text,
+  "quantity" varchar(45) DEFAULT NULL,
+  "uom" varchar(45) DEFAULT NULL,
+  "price" varchar(45) DEFAULT NULL,
+  PRIMARY KEY ("po_item_id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`users` (
-    `id` INT NOT NULL AUTO_INCREMENT,
-    `name` VARCHAR(100) NULL,
-    `email` VARCHAR(100) NULL,
-    `password` VARCHAR(255) NULL,
-    `user_role` VARCHAR(45) NULL,
-    `created_on` DATETIME NULL,
-    `updated_on` DATETIME NULL,
-    PRIMARY KEY (`id`),
-    UNIQUE INDEX `email_UNIQUE` (`email` ASC) VISIBLE
-  );
+CREATE TABLE "products_types" (
+  "product_id" int NOT NULL AUTO_INCREMENT,
+  "product_name" varchar(45) DEFAULT NULL,
+  PRIMARY KEY ("product_id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`paper_coating_data` (
-    `id` INT NOT NULL AUTO_INCREMENT,
-    `job_id` INT NULL,
-    `paper` VARCHAR(45) NULL,
-    `coating` VARCHAR(45) NULL,
-    `delivery_date` DATETIME NULL,
-    PRIMARY KEY (`id`)
-  );
+CREATE TABLE "purchase_orders" (
+  "po_id" int NOT NULL AUTO_INCREMENT,
+  "quote_id" int DEFAULT NULL,
+  "customer_id" varchar(45) DEFAULT NULL,
+  "po_type_id" int DEFAULT NULL,
+  "batch_ref" text,
+  "po_date" datetime DEFAULT NULL,
+  "delivery_date" datetime DEFAULT NULL,
+  "TC_E_PR_No" varchar(45) DEFAULT NULL,
+  "approved_on" datetime DEFAULT NULL,
+  "approved_by" varchar(45) DEFAULT NULL,
+  "created_on" datetime DEFAULT NULL,
+  "created_by" varchar(45) DEFAULT NULL,
+  "updated_on" datetime DEFAULT NULL,
+  "updated_by" varchar(45) DEFAULT NULL,
+  "status" varchar(45) DEFAULT NULL,
+  "customer_po" varchar(45) DEFAULT NULL,
+  "po_items" varchar(45) DEFAULT NULL,
+  "sales_ref" varchar(45) DEFAULT NULL,
+  "currency" varchar(45) DEFAULT NULL,
+  PRIMARY KEY ("po_id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`job_ink_data` (
-    `id` INT NOT NULL AUTO_INCREMENT,
-    `job_id` VARCHAR(45) NULL,
-    `ink` VARCHAR(45) NULL,
-    `quantity` VARCHAR(45) NULL,
-    `status` VARCHAR(45) NULL,
-    `remarks` VARCHAR(45) NULL,
-    PRIMARY KEY (`id`)
-  );
 
-CREATE TABLE
-  `erp_madhawi_db`.`goods_receive_notes` (
-    `id` INT NOT NULL AUTO_INCREMENT,
-    `related_po` VARCHAR(45) NULL,
-    `received_date` DATETIME NULL,
-    `supplier_name` VARCHAR(45) NULL,
-    `stock_location` VARCHAR(45) NULL,
-    `payee_name` VARCHAR(45) NULL,
-    `payment_method` VARCHAR(45) NULL,
-    `currency` VARCHAR(45) NULL,
-    `supplier_invoice_no` VARCHAR(45) NULL,
-    `remarks` VARCHAR(45) NULL,
-    `created_on` DATETIME NULL,
-    `created_by` VARCHAR(45) NULL,
-    `updated_on` DATETIME NULL,
-    `updated_by` VARCHAR(45) NULL,
-    PRIMARY KEY (`id`)
-  );
+CREATE TABLE "quotations" (
+  "quote_id" int NOT NULL AUTO_INCREMENT,
+  "customer_id" int NOT NULL,
+  "type_id" int NOT NULL,
+  "delivery_days" varchar(45) DEFAULT NULL,
+  "tax_type_id" int NOT NULL,
+  "currency" varchar(45) DEFAULT NULL,
+  "sub_total" decimal(15,2) DEFAULT NULL,
+  "no_of_items" varchar(45) DEFAULT NULL,
+  "total_without_tax" decimal(15,2) DEFAULT NULL,
+  "net_total" decimal(15,2) DEFAULT NULL,
+  "contact_person" varchar(45) DEFAULT NULL,
+  "notes" text,
+  "created_on" datetime DEFAULT NULL,
+  "created_by" varchar(45) DEFAULT NULL,
+  "updated_on" datetime DEFAULT NULL,
+  "updated_by" varchar(45) DEFAULT NULL,
+  "status" varchar(45) DEFAULT NULL,
+  "marketing_person" varchar(45) DEFAULT NULL,
+  "validity_period" int DEFAULT NULL,
+  PRIMARY KEY ("quote_id"),
+  UNIQUE KEY "quote_id_UNIQUE" ("quote_id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`grn_items` (
-    `id` INT NOT NULL AUTO_INCREMENT,
-    `grn_no` INT NOT NULL,
-    `item_name` VARCHAR(45) NULL,
-    `quantity` INT NULL,
-    `rate` DECIMAL(10, 2) NULL,
-    `amount` DECIMAL(10, 2) NULL,
-    `created_on` DATETIME NULL AFTER `collector_name`,
-    `created_by` VARCHAR(45) NULL AFTER `created_on`,
-    `updated_on` DATETIME NULL AFTER `created_by`,
-    `updated_by` VARCHAR(45) NULL AFTER `updated_on`,
-    PRIMARY KEY (`id`)
-  );
+CREATE TABLE "quote_items" (
+  "item_id" int NOT NULL AUTO_INCREMENT,
+  "quote_id" varchar(45) NOT NULL,
+  "item_category" varchar(45) DEFAULT NULL,
+  "item_description" text,
+  "item_qty" decimal(15,2) DEFAULT NULL,
+  "item_unit_price" decimal(15,6) DEFAULT NULL,
+  "item_unit_discount" varchar(45) DEFAULT NULL,
+  "item_total_price" decimal(15,2) DEFAULT NULL,
+  PRIMARY KEY ("item_id")
+)
 
-CREATE TABLE
-  `erp_madhawi_db`.`issue-notes` (
-    `id` INT NOT NULL AUTO_INCREMENT,
-    `date` DATETIME NULL,
-    `remarks` VARCHAR(45) NULL,
-    `collector_name` VARCHAR(45) NULL,
-    PRIMARY KEY (`id`)
-  );
 
-CREATE TABLE
-  `erp_madhawi_db`.`issue_note-items` (
-    `id` INT NOT NULL AUTO_INCREMENT,
-    `issue_note_id` INT NULL,
-    `item_id` INT NULL,
-    `item_name` VARCHAR(45) NULL,
-    `quantity` DECIMAL(10, 2) NULL,
-    PRIMARY KEY (`id`)
-  );
+CREATE TABLE "quote_types" (
+  "type_id" int NOT NULL AUTO_INCREMENT,
+  "type_name" varchar(45) DEFAULT NULL,
+  PRIMARY KEY ("type_id")
+)
+CREATE TABLE "tax_types" (
+  "tax_id" int NOT NULL AUTO_INCREMENT,
+  "tax_type_name" varchar(45) DEFAULT NULL,
+  PRIMARY KEY ("tax_id")
+)
+
+
+CREATE TABLE "users" (
+  "id" int NOT NULL AUTO_INCREMENT,
+  "name" varchar(100) DEFAULT NULL,
+  "email" varchar(100) DEFAULT NULL,
+  "password" varchar(255) DEFAULT NULL,
+  "user_role" varchar(45) DEFAULT NULL,
+  "created_on" datetime DEFAULT NULL,
+  "updated_on" datetime DEFAULT NULL,
+  PRIMARY KEY ("id"),
+  UNIQUE KEY "email_UNIQUE" ("email")
+)
