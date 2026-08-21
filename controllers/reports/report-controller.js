@@ -441,35 +441,79 @@ exports.getDashboardInsights = (req, res) => {
             pool.query(dispatchQuery, (err, dispatch) => {
               if (err) return res.status(500).json(err);
 
-              /* ================= RESPONSE ================= */
+              /* ================= STOCK REMINDERS ================= */
+              const remindersQuery = `
+                SELECT 
+                  mi.item_name,
+                  mi.item_sub_category,
+                  mi.size,
+                  (
+                    COALESCE(
+                      (
+                        SELECT SUM(gi.quantity)
+                        FROM grn_items gi
+                        INNER JOIN goods_receive_notes grn
+                            ON grn.id = gi.grn_no
+                        WHERE gi.item_id = mi.item_id
+                      ),0
+                    )
+                    -
+                    COALESCE(
+                      (
+                        SELECT SUM(ini.quantity)
+                        FROM \`issue_note-items\` ini
+                        WHERE ini.item_id = mi.item_id
+                      ),0
+                    )
+                  ) AS available_qty,
+                  mi.reorder_level,
+                  CASE 
+                    WHEN (
+                      COALESCE((SELECT SUM(gi.quantity) FROM grn_items gi INNER JOIN goods_receive_notes grn ON grn.id = gi.grn_no WHERE gi.item_id = mi.item_id),0) - 
+                      COALESCE((SELECT SUM(ini.quantity) FROM \`issue_note-items\` ini WHERE ini.item_id = mi.item_id),0)
+                    ) < mi.reorder_level THEN 'BELOW'
+                    ELSE 'NEAR'
+                  END AS stock_status
+                FROM main_inventory mi
+                WHERE mi.reorder_level IS NOT NULL AND mi.reorder_level > 0
+                HAVING available_qty <= (mi.reorder_level * 1.25)
+                ORDER BY (available_qty / mi.reorder_level) ASC
+                LIMIT 10
+              `;
 
-              response.kpis = [
-                { key: "totalQuotations", value: totalQuotations },
-                { key: "approvedQuotations", value: approvedQuotations },
+              pool.query(remindersQuery, (err, stockReminders) => {
+                if (err) return res.status(500).json(err);
 
-                { key: "totalRevenue", value: revenueByCurrency },
+                /* ================= RESPONSE ================= */
 
-                { key: "dispatchRevenue", value: dispatchRevenue },
+                response.kpis = [
+                  { key: "totalQuotations", value: totalQuotations },
+                  { key: "approvedQuotations", value: approvedQuotations },
 
-                {
-                  key: "productionEfficiency",
-                  value: Number(jobs[0].production_efficiency || 0),
-                },
-                {
-                  key: "lowStockItems",
-                  value: Number(inventory[0].low_stock_items || 0),
-                },
-                {
-                  key: "totalDispatches",
-                  value: Number(dispatch[0].total_dispatches || 0),
-                },
-              ];
+                  { key: "totalRevenue", value: revenueByCurrency },
 
-              response.analytics = {
-                revenueTrend: formattedTrend,
-                jobStats: jobs[0],
-                dispatchStats: dispatch[0],
-              };
+                  { key: "dispatchRevenue", value: dispatchRevenue },
+
+                  {
+                    key: "productionEfficiency",
+                    value: Number(jobs[0].production_efficiency || 0),
+                  },
+                  {
+                    key: "lowStockItems",
+                    value: Number(inventory[0].low_stock_items || 0),
+                  },
+                  {
+                    key: "totalDispatches",
+                    value: Number(dispatch[0].total_dispatches || 0),
+                  },
+                ];
+
+                response.analytics = {
+                  revenueTrend: formattedTrend,
+                  jobStats: jobs[0],
+                  dispatchStats: dispatch[0],
+                  stockReminders: stockReminders || [],
+                };
 
               /* ================= INSIGHTS ================= */
 
@@ -499,6 +543,7 @@ exports.getDashboardInsights = (req, res) => {
     });
    });
   });
+ });
 };
 
 
