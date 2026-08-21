@@ -556,13 +556,15 @@ exports.getAllDataReports = (req, res, next) => {
       SELECT po.*, c.company_name as customer_name, pod.item_code as item_type, pod.description as item_name, pod.quantity as item_qty, pod.price as item_price
       FROM \`erp_madhawi_db\`.purchase_orders po
       LEFT JOIN \`erp_madhawi_db\`.customers c ON c.customer_id = po.customer_id
-      LEFT JOIN \`erp_madhawi_db\`.po_items_details pod ON pod.po_id = po.po_id
+      LEFT JOIN \`erp_madhawi_db\`.po_items_details pod ON pod.po_id = po.po_id OR pod.po_id = po.customer_po
     `;
     
     if (filters.fromDate && filters.toDate) {
       conditions.push(`DATE(po.po_date) BETWEEN ? AND ?`);
       params.push(filters.fromDate, filters.toDate);
     }
+  } else if (reportType === "main_inventory") {
+    // Do not filter by date range to return the full inventory
   } else {
     // ✅ Date range filter for others
     if (filters.fromDate && filters.toDate) {
