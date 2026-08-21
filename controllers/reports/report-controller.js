@@ -365,14 +365,14 @@ exports.getDashboardInsights = (req, res) => {
 
       /* ================= DISPATCH REVENUE ================= */
       const dispatchRevenueQuery = `
-              SELECT
+              SELECT 
                 po.currency,
 
                 IFNULL(
                   SUM(
-                    CAST(d.dispatch_qty AS DECIMAL(10,2))
+                    CAST(REPLACE(IFNULL(d.dispatch_qty, '0'), ',', '') AS DECIMAL(10,2))
                     *
-                    CAST(pod.price AS DECIMAL(10,2))
+                    CAST(REPLACE(IFNULL(pod.price, '0'), ',', '') AS DECIMAL(10,2))
                   ),
                   0
                 ) AS dispatch_revenue
@@ -382,9 +382,9 @@ exports.getDashboardInsights = (req, res) => {
               INNER JOIN jobs j
                 ON j.job_id = d.job_id
 
-              INNER JOIN po_items_details pod
+              LEFT JOIN po_items_details pod
                 ON pod.po_id = j.po_id
-              AND TRIM(pod.description) = TRIM(j.job_item)
+              AND (LOWER(TRIM(pod.description)) = LOWER(TRIM(j.job_item)))
 
               INNER JOIN purchase_orders po
                 ON po.po_id = j.po_id
@@ -434,7 +434,7 @@ exports.getDashboardInsights = (req, res) => {
             const dispatchQuery = `
               SELECT
                 COUNT(*) AS total_dispatches,
-                SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) AS completed_dispatches
+                SUM(CASE WHEN status IN ('Completed', 'COMPLETED', 'Partially Dispatched', 'PARTIALLY DISPATHCED', 'PARTIALLY_DISPATCHED', 'PARTIALLY DISPATCHED') THEN 1 ELSE 0 END) AS completed_dispatches
               FROM dispatch
             `;
 
