@@ -158,12 +158,21 @@ exports.generateReport = async (req, res) => {
           SELECT
             d.dispatch_id,
             d.dispatch_date,
+            d.dispatch_note,
             d.status,
+            d.created_on,
+            d.created_by,
+            d.updated_on,
+            d.updated_by,
             CAST(d.dispatch_qty AS DECIMAL(15,2)) AS dispatch_qty,
             CAST(d.no_of_bundles AS DECIMAL(15,2)) AS no_of_bundles,
             j.job_id,
+            j.job_number,
             j.job_name,
+            j.quantity as order_qty,
+            j.job_open_date,
             c.customer_id,
+            c.company_name as customer_name,
             c.company_name
           FROM dispatch d
           LEFT JOIN jobs j ON j.job_id = d.job_id
