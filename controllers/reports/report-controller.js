@@ -517,10 +517,26 @@ exports.getAllDataReports = (req, res, next) => {
   const params = [];
   const conditions = [];
 
-  // ✅ Date range filter
-  if (filters.fromDate && filters.toDate) {
-    conditions.push(`DATE(created_on) BETWEEN ? AND ?`);
-    params.push(filters.fromDate, filters.toDate);
+  if (reportType === "jobs") {
+    query = `
+      SELECT j.*, c.company_name as customer_name, po.po_no, pod.price as unit_price
+      FROM \`erp_madhawi_db\`.jobs j
+      LEFT JOIN \`erp_madhawi_db\`.customers c ON c.customer_id = j.customer_id
+      LEFT JOIN \`erp_madhawi_db\`.purchase_orders po ON po.po_id = j.po_id
+      LEFT JOIN \`erp_madhawi_db\`.po_items_details pod ON pod.po_id = j.po_id AND TRIM(pod.description) = TRIM(j.job_item)
+    `;
+    
+    // ✅ Date range filter by job_open_date for jobs
+    if (filters.fromDate && filters.toDate) {
+      conditions.push(`DATE(j.job_open_date) BETWEEN ? AND ?`);
+      params.push(filters.fromDate, filters.toDate);
+    }
+  } else {
+    // ✅ Date range filter for others
+    if (filters.fromDate && filters.toDate) {
+      conditions.push(`DATE(created_on) BETWEEN ? AND ?`);
+      params.push(filters.fromDate, filters.toDate);
+    }
   }
 
   // Add WHERE if conditions exist

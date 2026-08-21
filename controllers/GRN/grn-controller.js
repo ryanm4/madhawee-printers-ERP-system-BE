@@ -275,11 +275,10 @@ exports.createGRN = (req, res) => {
 
                   const newQty = oldQty + grnQty;
 
-                  // ✅ SIMPLE AVERAGE RATE
-                  const newRate =
-                    oldRate && grnRate
-                      ? (oldRate + grnRate) / 2
-                      : (oldRate || grnRate);
+                  // ✅ WEIGHTED AVERAGE RATE
+                  const newRate = (oldQty + grnQty) > 0 
+                    ? ((oldQty * oldRate) + (grnQty * grnRate)) / (oldQty + grnQty)
+                    : grnRate;
 
                               await new Promise((resolve, reject) => {
                                 connection.query(
@@ -514,11 +513,10 @@ exports.updateGRN = (req, res) => {
 
                               const newQty = oldQty + grnQty;
 
-                              // ✅ SIMPLE AVERAGE RATE
-                              const newRate =
-                                oldRate && grnRate
-                                  ? (oldRate + grnRate) / 2
-                                  : (oldRate || grnRate);
+                              // ✅ WEIGHTED AVERAGE RATE
+                              const newRate = (oldQty + grnQty) > 0 
+                                ? ((oldQty * oldRate) + (grnQty * grnRate)) / (oldQty + grnQty)
+                                : grnRate;
 
                               await new Promise((resolve, reject) => {
                                 connection.query(
