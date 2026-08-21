@@ -523,7 +523,7 @@ exports.getAllDataReports = (req, res, next) => {
       FROM \`erp_madhawi_db\`.jobs j
       LEFT JOIN \`erp_madhawi_db\`.customers c ON c.customer_id = j.customer_id
       LEFT JOIN \`erp_madhawi_db\`.purchase_orders po ON po.po_id = j.po_id
-      LEFT JOIN \`erp_madhawi_db\`.po_items_details pod ON pod.po_id = j.po_id AND TRIM(pod.description) = TRIM(j.job_item)
+      LEFT JOIN \`erp_madhawi_db\`.po_items_details pod ON pod.po_id = j.po_id AND (TRIM(pod.description) = TRIM(j.job_item) OR TRIM(pod.description) = TRIM(j.job_name))
     `;
     
     if (filters.fromDate && filters.toDate) {
