@@ -367,30 +367,23 @@ exports.getDashboardInsights = (req, res) => {
       const dispatchRevenueQuery = `
               SELECT 
                 po.currency,
-
                 IFNULL(
                   SUM(
                     CAST(REPLACE(IFNULL(d.dispatch_qty, '0'), ',', '') AS DECIMAL(10,2))
                     *
-                    CAST(REPLACE(IFNULL(pod.price, '0'), ',', '') AS DECIMAL(10,2))
+                    IFNULL(prices.unit_price, 0)
                   ),
                   0
                 ) AS dispatch_revenue
-
               FROM dispatch d
-
-              INNER JOIN jobs j
-                ON j.job_id = d.job_id
-
-              LEFT JOIN po_items_details pod
-                ON pod.po_id = j.po_id
-              AND (LOWER(TRIM(pod.description)) = LOWER(TRIM(j.job_item)))
-
-              INNER JOIN purchase_orders po
-                ON po.po_id = j.po_id
-
-              WHERE d.created_on BETWEEN ? AND ?
-
+              INNER JOIN jobs j ON j.job_id = d.job_id
+              INNER JOIN purchase_orders po ON po.po_id = j.po_id
+              LEFT JOIN (
+                SELECT po_id, MAX(CAST(REPLACE(IFNULL(price, '0'), ',', '') AS DECIMAL(10,2))) AS unit_price
+                FROM po_items_details
+                GROUP BY po_id
+              ) prices ON prices.po_id = j.po_id
+              WHERE COALESCE(d.dispatch_date, d.created_on) BETWEEN ? AND ?
               GROUP BY po.currency
             `;
 
