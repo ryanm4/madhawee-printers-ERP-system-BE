@@ -566,7 +566,7 @@ exports.getAllDataReports = (req, res, next) => {
 
   if (reportType === "jobs") {
     query = `
-      SELECT j.*, c.company_name as customer_name, po.customer_po, pod.price as unit_price
+      SELECT j.*, c.company_name as customer_name, po.customer_po, po.currency, pod.price as unit_price
       FROM \`erp_madhawi_db\`.jobs j
       LEFT JOIN \`erp_madhawi_db\`.customers c ON c.customer_id = j.customer_id
       LEFT JOIN \`erp_madhawi_db\`.purchase_orders po ON po.po_id = j.po_id
