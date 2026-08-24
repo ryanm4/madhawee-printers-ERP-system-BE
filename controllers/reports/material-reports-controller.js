@@ -254,7 +254,7 @@ exports.generateInventoryReport = async (req, res) => {
               CAST(gi.amount AS DECIMAL(15,2)) AS amount
           FROM goods_receive_notes grn
           INNER JOIN grn_items gi ON gi.grn_no = grn.id
-          LEFT JOIN main_inventory mi ON mi.item_name = gi.item_name
+          LEFT JOIN main_inventory mi ON mi.item_id = gi.item_id
           ${grnWhereClause}
           ORDER BY grn.received_date DESC
         `;
@@ -396,12 +396,7 @@ exports.generateInventoryReport = async (req, res) => {
         0
       );
 
-      const formattedRows = rows.map(row => ({
-        ...row,
-        rate: row.rate ? formatCurrency(row.rate) : "LKR 0.00",
-        amount: row.amount ? formatCurrency(row.amount) : "LKR 0.00"
-      }));
-
+      const formattedRows = [...rows];
       formattedRows.push({
         grn_id: "TOTAL",
         supplier_name: "",
@@ -412,10 +407,11 @@ exports.generateInventoryReport = async (req, res) => {
         size: "",
         quantity: null,
         rate: null,
-        amount: formatCurrency(grand_total)
+        amount: grand_total
       });
+      
+      return res.status(200).json({ data: formattedRows });
     } else if (
-        report_type === "GRN_REPORT" || 
         report_type === "MATERIAL_CONSUMPTION_SUMMARY" || 
         report_type === "MATERIAL_CONSUMPTION_BY_JOB"
       ) {
@@ -438,7 +434,7 @@ exports.generateInventoryReport = async (req, res) => {
           total_value: formatCurrency(total_value)
         });
 
-        return res.status(200).json(formattedRows);
+        return res.status(200).json({ data: formattedRows });
       } else if (report_type === "STOCK_AGING") {
       const formattedRows = rows.map(row => ({
         ...row,
