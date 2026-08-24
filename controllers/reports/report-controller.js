@@ -591,7 +591,7 @@ exports.getAllDataReports = (req, res, next) => {
     }
   } else if (reportType === "purchase_orders") {
     query = `
-      SELECT po.*, c.company_name as customer_name, pod.item_code as item_type, pod.description as item_name, pod.quantity as item_qty, pod.price as item_price
+      SELECT po.*, c.company_name as customer_name, pod.item_code as item_type, pod.description as item_name, pod.quantity as item_qty, pod.price as item_price, pod.uom as item_uom
       FROM \`erp_madhawi_db\`.purchase_orders po
       LEFT JOIN \`erp_madhawi_db\`.customers c ON c.customer_id = po.customer_id
       LEFT JOIN \`erp_madhawi_db\`.po_items_details pod ON pod.po_id = po.po_id OR pod.po_id = po.customer_po
