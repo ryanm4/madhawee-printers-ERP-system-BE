@@ -199,13 +199,29 @@ exports.generateReport = async (req, res) => {
     if (filters.customer_id) {
       if (reportType === 'DISPATCH_INSIGHTS') {
         query += ` AND d.customer_id = ?`;
-      } else if (['JOB_PRODUCTION', 'QUOTATION_SUMMARY', 'QUOTE_TO_PO_CONVERSION'].includes(reportType)) {
+      } else if (['JOB_PRODUCTION', 'QUOTATION_SUMMARY', 'QUOTE_TO_PO_CONVERSION', 'QUOTATION_BY_CUSTOMER'].includes(reportType)) {
         query += ` AND ${baseAlias}.customer_id = ?`;
       }
       params.push(filters.customer_id);
     }
 
-    /* -------------------- STATUS FILTER -------------------- */
+    
+    /* -------------------- SALESPERSON FILTER -------------------- */
+    if (filters.salesperson && baseAlias) {
+      if (['QUOTATION_SUMMARY', 'QUOTE_TO_PO_CONVERSION', 'QUOTATION_BY_CUSTOMER', 'QUOTATION_BY_SALESPERSON'].includes(reportType)) {
+        query += ` AND ${baseAlias}.created_by = ?`;
+        params.push(filters.salesperson);
+      }
+    }
+
+    /* -------------------- PRODUCT TYPE FILTER -------------------- */
+    if (filters.product_type) {
+      if (reportType === 'JOB_PRODUCTION') {
+        query += ` AND j.product_type = ?`;
+        params.push(filters.product_type);
+      }
+    }
+/* -------------------- STATUS FILTER -------------------- */
     if (filters.status && baseAlias) {
       query += ` AND ${baseAlias}.status = ?`;
       params.push(filters.status);
