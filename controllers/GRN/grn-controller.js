@@ -275,10 +275,18 @@ exports.createGRN = (req, res) => {
 
                   const newQty = oldQty + grnQty;
 
-                  // ✅ WEIGHTED AVERAGE RATE
-                  const newRate = (oldQty + grnQty) > 0 
-                    ? ((oldQty * oldRate) + (grnQty * grnRate)) / (oldQty + grnQty)
-                    : grnRate;
+                  // ✅ ARITHMETIC MEAN OF GRN RATES
+                  const avgResult = await new Promise((resolve, reject) => {
+                    connection.query(
+                      "SELECT AVG(rate) as avgRate FROM grn_items WHERE item_name = ?",
+                      [item.item_name],
+                      (err, results) => {
+                        if (err) return reject(err);
+                        resolve(results[0]);
+                      }
+                    );
+                  });
+                  const newRate = avgResult && avgResult.avgRate ? Number(avgResult.avgRate) : grnRate;
 
                               await new Promise((resolve, reject) => {
                                 connection.query(
@@ -513,10 +521,18 @@ exports.updateGRN = (req, res) => {
 
                               const newQty = oldQty + grnQty;
 
-                              // ✅ WEIGHTED AVERAGE RATE
-                              const newRate = (oldQty + grnQty) > 0 
-                                ? ((oldQty * oldRate) + (grnQty * grnRate)) / (oldQty + grnQty)
-                                : grnRate;
+                              // ✅ ARITHMETIC MEAN OF GRN RATES
+                              const avgResult = await new Promise((resolve, reject) => {
+                                connection.query(
+                                  "SELECT AVG(rate) as avgRate FROM grn_items WHERE item_name = ?",
+                                  [item.item_name],
+                                  (err, results) => {
+                                    if (err) return reject(err);
+                                    resolve(results[0]);
+                                  }
+                                );
+                              });
+                              const newRate = avgResult && avgResult.avgRate ? Number(avgResult.avgRate) : grnRate;
 
                               await new Promise((resolve, reject) => {
                                 connection.query(
