@@ -244,7 +244,7 @@ exports.generateReport = async (req, res) => {
 
     if (reportType === 'QUOTATION_BY_SALESPERSON') {
       query += `
-        GROUP BY q.created_by
+        GROUP BY q.marketing_person
         ORDER BY total_value DESC
       `;
     }
