@@ -209,7 +209,7 @@ exports.generateReport = async (req, res) => {
     /* -------------------- SALESPERSON FILTER -------------------- */
     if (filters.salesperson && baseAlias) {
       if (['QUOTATION_SUMMARY', 'QUOTE_TO_PO_CONVERSION', 'QUOTATION_BY_CUSTOMER', 'QUOTATION_BY_SALESPERSON'].includes(reportType)) {
-        query += ` AND ${baseAlias}.created_by = ?`;
+        query += ` AND ${baseAlias}.marketing_person = ?`;
         params.push(filters.salesperson);
       }
     }
