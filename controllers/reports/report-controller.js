@@ -84,7 +84,7 @@ exports.generateReport = async (req, res) => {
         baseAlias = 'q';
         query = `
           SELECT
-            q.created_by                                             AS salesperson,
+            q.marketing_person                                       AS salesperson,
             COUNT(q.quote_id)                                        AS total_quotes,
             SUM(CASE WHEN q.status = 'ACCEPTED' THEN 1 ELSE 0 END)  AS approved_quotes,
             SUM(CASE WHEN q.status = 'REJECTED' THEN 1 ELSE 0 END)  AS rejected_quotes,
