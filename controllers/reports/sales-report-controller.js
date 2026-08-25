@@ -122,14 +122,13 @@ exports.generateSalesReport = async (req, res) => {
             case "SALES_BY_SALESPERSON":
                 query = `
                 SELECT
-                    q.marketing_person AS salesperson,
+                    po.sales_ref AS salesperson,
                     COUNT(DISTINCT po.po_id) AS total_orders,
                     SUM(CAST(pid.quantity AS DECIMAL(10,2)) * CAST(pid.price AS DECIMAL(10,2))) AS total_sales
                 FROM purchase_orders po
-                LEFT JOIN quotations q ON q.quote_id = po.quote_id
                 LEFT JOIN po_items_details pid ON pid.po_id = po.po_id
                 WHERE DATE(po.po_date) BETWEEN ? AND ?
-                GROUP BY q.marketing_person
+                GROUP BY po.sales_ref
                 ORDER BY total_sales DESC
                 `;
                 params = [from_date, to_date];
