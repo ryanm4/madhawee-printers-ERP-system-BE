@@ -84,7 +84,10 @@ function getNextJobSequence(connection, template, callback) {
 
 // --- New endpoint: get the next sequence number for a given type ---
 exports.getNextSequence = (req, res, next) => {
-  const type = (req.params.type || "").trim().toUpperCase().replace(/\s+/g, "-");
+  const type = (req.params.type || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "-");
 
   const template = JOB_NUMBER_TEMPLATES[type];
   if (!template) {
