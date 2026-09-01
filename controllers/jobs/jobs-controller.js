@@ -3,7 +3,7 @@ const pool = require("../../sql-connection");
 const JOB_NUMBER_TEMPLATES = {
   TIEP: "MPL/####/YY/TIEP",
   "NON_TIEP": "MPL/####/YY/NON_TIEP",
-  MP: "MPL/####/YY/PATHUM",
+  MP: "MP/####/YY/PATHUM",
 };
 
 // FIX 1: Robustly handle undefined/null/invalid date values
