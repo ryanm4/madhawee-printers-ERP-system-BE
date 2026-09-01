@@ -2,7 +2,7 @@ const pool = require("../../sql-connection");
 
 const JOB_NUMBER_TEMPLATES = {
   TIEP: "MPL/####/YY/TIEP",
-  "NON-TIEP": "MPL/####/YY/NON-TIEP",
+  "NON-TIEP": "MPL/####/YY/NON_TIEP",
   MP: "MPL/####/YY/MP",
 };
 
