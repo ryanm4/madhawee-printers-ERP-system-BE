@@ -82,6 +82,44 @@ function getNextJobSequence(connection, template, callback) {
   });
 }
 
+// --- New endpoint: get the next sequence number for a given type ---
+exports.getNextSequence = (req, res, next) => {
+  const type = (req.params.type || "").trim().toUpperCase().replace(/\s+/g, "-");
+
+  const template = JOB_NUMBER_TEMPLATES[type];
+  if (!template) {
+    return res.status(400).json({
+      message: `Invalid type '${req.params.type}'. Use TIEP, NON-TIEP, or MT.`,
+    });
+  }
+
+  const year = String(new Date().getFullYear()).slice(-2);
+
+  pool.getConnection((err, connection) => {
+    if (err) return next(err);
+
+    getNextJobSequence(connection, template, (err, nextSequence) => {
+      connection.release();
+      if (err) return next(err);
+
+      // Split template around #### to get prefix and suffix
+      const parts = template.split("####");
+      const prefix = parts[0].replace("YY", year);
+      const suffix = parts[1].replace("YY", year);
+      const paddedSequence = String(nextSequence).padStart(4, "0");
+      const preview = prefix + paddedSequence + suffix;
+
+      res.status(200).json({
+        template,
+        prefix,
+        suffix,
+        nextSequence,
+        preview,
+      });
+    });
+  });
+};
+
 exports.getJobsByPOId = (req, res, next) => {
   const poId = req.params.poId;
 
@@ -288,6 +326,25 @@ exports.createJob = (req, res, next) => {
 
         let finalJobNumber = null;
         if (job_number) {
+          // If job_number is a fully-formed number (no #### placeholder),
+          // use it directly without auto-sequencing.
+          if (!String(job_number).includes("####")) {
+            finalJobNumber = String(job_number).trim();
+            connection.query(
+              `UPDATE jobs SET job_number = ? WHERE job_id = ?`,
+              [finalJobNumber, jobId],
+              (err) => {
+                if (err)
+                  return connection.rollback(() => {
+                    connection.release();
+                    next(err);
+                  });
+                insertPaperCoating(0);
+              }
+            );
+            return; // skip the auto-sequence path below
+          }
+
           const jobNumberTemplate = resolveJobNumberTemplate(job_number);
 
           if (!jobNumberTemplate) {
@@ -468,11 +525,14 @@ exports.updateJob = (req, res, next) => {
         return next(err);
       }
 
+      const job_number = req.body.job_number || null;
+
       connection.query(
         `UPDATE jobs SET
           job_name=?, product_type=?, paper_type_id=?, quantity=?, coating=?, job_open_date=?,
           packing_date=?, expiry_date=?, description=?, artwork=?,
           remarks=?, status=?, completed_qty=?, job_item=?, wastage=?, order_received_date=?, job_ref_id=?,
+          job_number=?,
           updated_on=?, updated_by=?
          WHERE job_id=?`,
         [
@@ -493,6 +553,7 @@ exports.updateJob = (req, res, next) => {
           wastage,
           order_received_date,
           job_ref_id,
+          job_number,
           updatedOn,
           updated_by,
           jobId,
