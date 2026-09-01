@@ -328,6 +328,9 @@ jobsRouter.route("/")
  */
 
 
+jobsRouter.route("/next-sequence/:type")
+    .get(jobsController.getNextSequence);
+
 jobsRouter.route("/:jobId")
     .get(jobsController.getJobById)
     .put(jobsController.updateJob)
