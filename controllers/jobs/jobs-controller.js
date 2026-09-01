@@ -2,8 +2,8 @@ const pool = require("../../sql-connection");
 
 const JOB_NUMBER_TEMPLATES = {
   TIEP: "MPL/####/YY/TIEP",
-  "NON-TIEP": "MPL/NT/####/YY/NON-TIEP",
-  MT: "MP/####/YY",
+  "NON-TIEP": "MPL/####/YY/NON-TIEP",
+  MP: "MPL/####/YY/MP",
 };
 
 // FIX 1: Robustly handle undefined/null/invalid date values
@@ -84,12 +84,15 @@ function getNextJobSequence(connection, template, callback) {
 
 // --- New endpoint: get the next sequence number for a given type ---
 exports.getNextSequence = (req, res, next) => {
-  const type = (req.params.type || "").trim().toUpperCase().replace(/\s+/g, "-");
+  const type = (req.params.type || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "-");
 
   const template = JOB_NUMBER_TEMPLATES[type];
   if (!template) {
     return res.status(400).json({
-      message: `Invalid type '${req.params.type}'. Use TIEP, NON-TIEP, or MT.`,
+      message: `Invalid type '${req.params.type}'. Use TIEP, NON-TIEP, or MP.`,
     });
   }
 
