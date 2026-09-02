@@ -25,12 +25,13 @@ exports.generateSalesReport = async (req, res) => {
                 query = `
                 SELECT
                     DATE(po.po_date) AS sales_date,
+                    po.currency,
                     COUNT(DISTINCT po.po_id) AS total_orders,
                     SUM(CAST(pid.quantity AS DECIMAL(10,2)) * CAST(pid.price AS DECIMAL(10,2))) AS total_sales
                 FROM purchase_orders po
                 LEFT JOIN po_items_details pid ON pid.po_id = po.po_id
                 WHERE DATE(po.po_date) BETWEEN ? AND ?
-                GROUP BY DATE(po.po_date)
+                GROUP BY DATE(po.po_date), po.currency
                 ORDER BY sales_date DESC
                 `;
                 params = [from_date, to_date];
@@ -41,12 +42,13 @@ exports.generateSalesReport = async (req, res) => {
                 query = `
                 SELECT
                     DATE_FORMAT(po.po_date, '%Y-%m') AS sales_month,
+                    po.currency,
                     COUNT(DISTINCT po.po_id) AS total_orders,
                     SUM(CAST(pid.quantity AS DECIMAL(10,2)) * CAST(pid.price AS DECIMAL(10,2))) AS total_sales
                 FROM purchase_orders po
                 LEFT JOIN po_items_details pid ON pid.po_id = po.po_id
                 WHERE DATE(po.po_date) BETWEEN ? AND ?
-                GROUP BY DATE_FORMAT(po.po_date, '%Y-%m')
+                GROUP BY DATE_FORMAT(po.po_date, '%Y-%m'), po.currency
                 ORDER BY sales_month ASC
             `;
                 params = [from_date, to_date];
@@ -58,12 +60,13 @@ exports.generateSalesReport = async (req, res) => {
                     YEARWEEK(po.po_date, 1) AS sales_week,
                     MIN(DATE(po.po_date)) AS week_start_date,
                     MAX(DATE(po.po_date)) AS week_end_date,
+                    po.currency,
                     COUNT(DISTINCT po.po_id) AS total_orders,
                     SUM(CAST(pid.quantity AS DECIMAL(10,2)) * CAST(pid.price AS DECIMAL(10,2))) AS total_sales
                 FROM purchase_orders po
                 LEFT JOIN po_items_details pid ON pid.po_id = po.po_id
                 WHERE DATE(po.po_date) BETWEEN ? AND ?
-                GROUP BY YEARWEEK(po.po_date, 1)
+                GROUP BY YEARWEEK(po.po_date, 1), po.currency
                 ORDER BY sales_week ASC
             `;
                 params = [from_date, to_date];
@@ -103,12 +106,13 @@ exports.generateSalesReport = async (req, res) => {
                 SELECT
                     COALESCE(NULLIF(pid.item_code, ''), '-') AS item_code,
                     pid.description,
+                    po.currency,
                     SUM(CAST(pid.quantity AS DECIMAL(10,2))) AS total_qty,
                     SUM(CAST(pid.price AS DECIMAL(10,2)) * CAST(pid.quantity AS DECIMAL(10,2))) AS total_sales
                 FROM purchase_orders po
                 INNER JOIN po_items_details pid ON pid.po_id = po.po_id
                 WHERE DATE(po.po_date) BETWEEN ? AND ?
-                GROUP BY pid.item_code, pid.description
+                GROUP BY pid.item_code, pid.description, po.currency
                 ORDER BY total_sales DESC
                 `;
                 params = [from_date, to_date];
