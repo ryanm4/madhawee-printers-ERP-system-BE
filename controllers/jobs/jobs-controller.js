@@ -887,13 +887,7 @@ exports.getJobById = (req, res, next) => {
                   }));
 
                   pool.query(
-                    `SELECT
-    j.*,
-    i.item_id
-FROM job_ink_data j
-LEFT JOIN main_inventory i
-    ON LOWER(TRIM(j.ink)) = LOWER(TRIM(i.item_name))
-WHERE j.job_id = ?;`,
+                    `SELECT * FROM job_ink_data WHERE job_id = ?;`,
                     [jobId],
                     (err, inkResults) => {
                       if (err) return next(err);

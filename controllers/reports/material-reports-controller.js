@@ -79,9 +79,9 @@ exports.generateInventoryReport = async (req, res) => {
               size,
 
               CAST(quantity AS DECIMAL(10,2)) AS quantity,
-              CAST(rate AS DECIMAL(10,2)) AS unit_rate,
+              CAST(unit_price AS DECIMAL(10,2)) AS unit_rate,
 
-              CAST((CAST(quantity AS DECIMAL(10,2)) * CAST(rate AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS stock_value
+              CAST((CAST(quantity AS DECIMAL(10,2)) * CAST(unit_price AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS stock_value
 
           FROM main_inventory
           ${stockWhereClause}
@@ -250,8 +250,8 @@ exports.generateInventoryReport = async (req, res) => {
               gi.item_name,
               mi.size,
               CAST(gi.quantity AS DECIMAL(10,2)) AS quantity,
-              CAST(gi.rate AS DECIMAL(10,2)) AS rate,
-              CAST(gi.amount AS DECIMAL(15,2)) AS amount
+              CAST(mi.unit_price AS DECIMAL(10,2)) AS rate,
+              CAST((gi.quantity * mi.unit_price) AS DECIMAL(15,2)) AS amount
           FROM goods_receive_notes grn
           INNER JOIN grn_items gi ON gi.grn_no = grn.id
           LEFT JOIN main_inventory mi ON mi.item_id = gi.item_id
@@ -272,8 +272,8 @@ exports.generateInventoryReport = async (req, res) => {
               gi.item_name,
               mi.size,
               SUM(gi.quantity) AS total_qty,
-              AVG(gi.rate) AS avg_rate,
-              SUM(gi.amount) AS total_value
+              AVG(mi.unit_price) AS avg_rate,
+              SUM(gi.quantity * mi.unit_price) AS total_value
           FROM goods_receive_notes grn
           INNER JOIN grn_items gi ON gi.grn_no = grn.id
           LEFT JOIN main_inventory mi ON mi.item_name = gi.item_name
