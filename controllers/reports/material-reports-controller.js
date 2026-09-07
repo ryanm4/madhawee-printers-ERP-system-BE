@@ -196,27 +196,7 @@ exports.generateInventoryReport = async (req, res) => {
               mi.item_name,
               mi.size,
               mi.item_id,
-
-              (
-                COALESCE(
-                  (
-                    SELECT SUM(gi.quantity)
-                    FROM grn_items gi
-                    INNER JOIN goods_receive_notes grn
-                        ON grn.id = gi.grn_no
-                    WHERE gi.item_id = mi.item_id
-                  ),0
-                )
-                -
-                COALESCE(
-                  (
-                    SELECT SUM(ini.quantity)
-                    FROM \`issue_note-items\` ini
-                    WHERE ini.item_id = mi.item_id
-                  ),0
-                )
-              ) AS available_qty,
-
+              CAST(mi.quantity AS DECIMAL(10,2)) AS available_qty,
               mi.reorder_level
 
           FROM main_inventory mi
