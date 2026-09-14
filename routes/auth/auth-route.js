@@ -56,12 +56,12 @@ authRouter.route("/register").post(authController.userRegistration);
  *           schema:
  *             type: object
  *             required:
- *               - email
+ *               - name
  *               - password
  *             properties:
- *               email:
+ *               name:
  *                 type: string
- *                 example: john@email.com
+ *                 example: John Doe
  *               password:
  *                 type: string
  *                 example: 123456
@@ -72,6 +72,34 @@ authRouter.route("/register").post(authController.userRegistration);
  *         description: Invalid credentials
  */
 authRouter.route("/login").post(authController.userLogin);
+
+/**
+ * @swagger
+ * /auth/refresh:
+ *   post:
+ *     summary: Refresh access token using refresh token cookie
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: New access token returned
+ *       401:
+ *         description: No refresh token
+ *       403:
+ *         description: Invalid or expired refresh token
+ */
+authRouter.route("/refresh").post(authController.refreshToken);
+
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Logout and revoke refresh token
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ */
+authRouter.route("/logout").post(authController.logout);
 
 /**
  * @swagger

@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const dotenv = require("dotenv");
 const connection = require("./sql-connection");
 
@@ -23,9 +24,24 @@ dotenv.config({ path: "./config.env" });
 const port = process.env.PORT || 3000;
 const app = express();
 
-// ✅ 1. CORS and JSON parsing first
+// ✅ 1. CORS, cookie parsing, and JSON parsing first
 app.use(express.json());
-app.use(cors());
+app.use(cookieParser());
+
+// Configure CORS with credentials support for HttpOnly cookies
+const allowedOrigins = [
+    process.env.FRONTEND_URL
+];
+app.use(cors({
+    origin: function (origin, callback) {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(null, true);
+    },
+    credentials: true,
+}));
 
 // ✅ 2. DB connection check
 connection.getConnection((err, conn) => {

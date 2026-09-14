@@ -1,6 +1,7 @@
 const pool = require("../../sql-connection");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 
 exports.userRegistration = async (req, res, next) => {
     const { name, email, password, user_role } = req.body;
@@ -66,26 +67,145 @@ exports.userLogin = (req, res, next) => {
                 message: "Invalid name or password",
             });
         }
-        const token = jwt.sign(
+
+        // 1. Create SHORT-LIVED access token (15 minutes)
+        const accessToken = jwt.sign(
             {
-                user_id: user.user_id,
-                name: user.name,
-                // role: user.role, // optional but useful
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: process.env.JWT_EXPIRES_IN || "1d" }
-        );
-        res.status(200).json({
-            message: "Login successful",
-            token,
-            user: {
-                user_id: user.user_id,
-                // email: user.email,
+                user_id: user.id,
                 name: user.name,
                 user_role: user.user_role,
             },
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRES_IN || "15m" }
+        );
+
+        // 2. Create LONG-LIVED refresh token (7 days)
+        const refreshToken = crypto.randomBytes(40).toString('hex');
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+        // 3. Store refresh token in database
+        const insertQuery = `
+            INSERT INTO refresh_tokens (user_id, token, expires_at)
+            VALUES (?, ?, ?)
+        `;
+        pool.query(insertQuery, [user.id, refreshToken, expiresAt], (insertErr) => {
+            if (insertErr) {
+                console.error("Error storing refresh token:", insertErr);
+                return res.status(500).json({ message: "Login failed" });
+            }
+
+            // 4. Set refresh token as HttpOnly cookie
+            res.cookie('refresh_token', refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+                path: '/',
+            });
+
+            // 5. Return access token + user info in response body
+            res.status(200).json({
+                message: "Login successful",
+                accessToken,
+                user: {
+                    user_id: user.id,
+                    name: user.name,
+                    user_role: user.user_role,
+                },
+            });
         });
     });
+};
+
+// ✅ Refresh token endpoint — exchanges a valid refresh token for a new access token
+exports.refreshToken = (req, res) => {
+    const refreshToken = req.cookies?.refresh_token;
+
+    if (!refreshToken) {
+        return res.status(401).json({ message: "No refresh token provided" });
+    }
+
+    // 1. Look up refresh token in database
+    const query = `
+        SELECT rt.*, u.name, u.user_role, u.id as user_id
+        FROM refresh_tokens rt
+        JOIN users u ON rt.user_id = u.id
+        WHERE rt.token = ? AND rt.revoked = 0 AND rt.expires_at > NOW()
+    `;
+
+    pool.query(query, [refreshToken], (err, results) => {
+        if (err) {
+            console.error("Refresh token lookup error:", err);
+            return res.status(500).json({ message: "Server error" });
+        }
+
+        if (results.length === 0) {
+            return res.status(403).json({ message: "Invalid or expired refresh token" });
+        }
+
+        const tokenRecord = results[0];
+
+        // 2. Revoke the old refresh token (rotation)
+        pool.query("UPDATE refresh_tokens SET revoked = 1 WHERE id = ?", [tokenRecord.id]);
+
+        // 3. Create new access token
+        const accessToken = jwt.sign(
+            {
+                user_id: tokenRecord.user_id,
+                name: tokenRecord.name,
+                user_role: tokenRecord.user_role,
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRES_IN || "15m" }
+        );
+
+        // 4. Create new refresh token (rotation)
+        const newRefreshToken = crypto.randomBytes(40).toString('hex');
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+        pool.query(
+            "INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)",
+            [tokenRecord.user_id, newRefreshToken, expiresAt],
+            (insertErr) => {
+                if (insertErr) {
+                    console.error("Error creating new refresh token:", insertErr);
+                    return res.status(500).json({ message: "Server error" });
+                }
+
+                // 5. Set new refresh token cookie
+                res.cookie('refresh_token', newRefreshToken, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: 'lax',
+                    maxAge: 7 * 24 * 60 * 60 * 1000,
+                    path: '/',
+                });
+
+                // 6. Return new access token
+                res.status(200).json({ accessToken });
+            }
+        );
+    });
+};
+
+// ✅ Logout — revoke refresh token and clear cookie
+exports.logout = (req, res) => {
+    const refreshToken = req.cookies?.refresh_token;
+
+    if (refreshToken) {
+        // Revoke the refresh token in database
+        pool.query("UPDATE refresh_tokens SET revoked = 1 WHERE token = ?", [refreshToken]);
+    }
+
+    // Clear the cookie
+    res.clearCookie('refresh_token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+    });
+
+    res.status(200).json({ message: "Logged out successfully" });
 };
 
 exports.getAllUsers = (req, res, next) => {
