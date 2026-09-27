@@ -305,7 +305,7 @@ exports.generateInventoryReport = async (req, res) => {
 
       /**
       * ==========================================================
-      * Total material usage across jobs
+      * Total material usage across jobs (with job breakdown)
       * ==========================================================
       */
       case "MATERIAL_CONSUMPTION_SUMMARY":
@@ -327,20 +327,27 @@ exports.generateInventoryReport = async (req, res) => {
 
         query = `
           SELECT
+              mi.item_id,
               mi.item_category,
               mi.item_sub_category,
               COALESCE(mi.item_name, ini.item_name) AS item_name,
               mi.size,
-              '' AS material_type,
-              CAST(SUM(CAST(ini.quantity AS DECIMAL(10,2))) AS DECIMAL(10,2)) AS total_consumed,
+              mi.unit_of_measure AS uom,
+              in_h.job_id,
+              COALESCE(j.job_number, IF(in_h.job_id IS NOT NULL, CONCAT('MPL/', LPAD(in_h.job_id, 4, '0'), '/26/TIEP'), '-')) AS job_number,
+              j.job_name,
+              COALESCE(in_h.issue_note_number, IF(in_h.id IS NOT NULL, CONCAT('ISN/', LPAD(in_h.id, 4, '0')), '-')) AS issue_note_no,
+              DATE_FORMAT(in_h.date, '%Y-%m-%d') AS issue_date,
+              CAST(SUM(CAST(ini.quantity AS DECIMAL(10,2))) AS DECIMAL(10,2)) AS consumed_qty,
               CAST(mi.unit_price AS DECIMAL(10,2)) AS unit_rate,
               CAST((SUM(CAST(ini.quantity AS DECIMAL(10,2))) * CAST(mi.unit_price AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS total_value
           FROM \`issue_note-items\` ini
           LEFT JOIN \`issue-notes\` in_h ON in_h.id = ini.issue_note_id
+          LEFT JOIN jobs j ON j.job_id = in_h.job_id
           LEFT JOIN main_inventory mi ON mi.item_id = ini.item_id OR (ini.item_id IS NULL AND mi.item_name = ini.item_name)
           ${matSummaryWhere}
-          GROUP BY mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_price
-          ORDER BY total_consumed DESC
+          GROUP BY mi.item_id, mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_of_measure, mi.unit_price, in_h.job_id, j.job_number, j.job_name, in_h.id, in_h.issue_note_number, DATE(in_h.date)
+          ORDER BY item_name ASC, consumed_qty DESC
         `;
         break;
 
@@ -450,21 +457,89 @@ exports.generateInventoryReport = async (req, res) => {
       });
       
       return res.status(200).json({ data: formattedRows });
-    } else if (
-        report_type === "MATERIAL_CONSUMPTION_SUMMARY" || 
-        report_type === "MATERIAL_CONSUMPTION_BY_JOB"
-      ) {
+    } else if (report_type === "MATERIAL_CONSUMPTION_SUMMARY") {
+        const itemMap = new Map();
+
+        rows.forEach(row => {
+          const itemKey = `${row.item_category || ''}||${row.item_sub_category || ''}||${row.item_name || ''}||${row.size || ''}`;
+          
+          if (!itemMap.has(itemKey)) {
+            itemMap.set(itemKey, {
+              item_id: row.item_id,
+              item_category: row.item_category || "",
+              item_sub_category: row.item_sub_category || "",
+              item_name: row.item_name || "",
+              size: row.size || "",
+              uom: row.uom || "-",
+              unit_rate_raw: Number(row.unit_rate || 0),
+              total_consumed_num: 0,
+              total_value_num: 0,
+              jobs: []
+            });
+          }
+
+          const itemGroup = itemMap.get(itemKey);
+          const cQty = Number(row.consumed_qty || 0);
+          const tVal = Number(row.total_value || 0);
+
+          itemGroup.total_consumed_num += cQty;
+          itemGroup.total_value_num += tVal;
+
+          if (row.job_id || row.job_number || (row.job_name && row.job_name !== "-")) {
+            itemGroup.jobs.push({
+              job_id: row.job_id,
+              job_number: row.job_number || "-",
+              job_name: row.job_name || "-",
+              issue_note_no: row.issue_note_no || "-",
+              issue_date: row.issue_date || "-",
+              consumed_qty: cQty,
+              unit_rate: row.unit_rate ? formatCurrency(row.unit_rate) : "LKR 0.00",
+              total_value: formatCurrency(tVal)
+            });
+          }
+        });
+
+        const formattedRows = Array.from(itemMap.values()).map(item => ({
+          item_category: item.item_category,
+          item_sub_category: item.item_sub_category,
+          item_name: item.item_name,
+          size: item.size,
+          uom: item.uom,
+          total_consumed: item.total_consumed_num,
+          unit_rate: item.unit_rate_raw ? formatCurrency(item.unit_rate_raw) : "LKR 0.00",
+          total_value: formatCurrency(item.total_value_num),
+          jobs: item.jobs
+        }));
+
+        const total_value = formattedRows.reduce(
+          (sum, row) => sum + (typeof row.total_value === 'string' ? parseFloat(row.total_value.replace(/[^0-9.-]/g, '')) || 0 : Number(row.total_value || 0)),
+          0
+        );
+        const total_consumed = formattedRows.reduce((sum, row) => sum + Number(row.total_consumed || 0), 0);
+
+        formattedRows.push({
+          item_category: "TOTAL",
+          item_sub_category: "",
+          item_name: `Total Items: ${formattedRows.length}`,
+          size: "",
+          uom: "",
+          total_consumed: total_consumed,
+          unit_rate: "",
+          total_value: formatCurrency(total_value),
+          jobs: []
+        });
+
+        return res.status(200).json({ data: formattedRows });
+      } else if (report_type === "MATERIAL_CONSUMPTION_BY_JOB") {
         const formattedRows = rows.map(row => ({
-          ...(report_type === "MATERIAL_CONSUMPTION_BY_JOB" && {
-            job_id: row.job_id,
-            job_number: row.job_number,
-            job_name: row.job_name,
-          }),
+          job_id: row.job_id,
+          job_number: row.job_number,
+          job_name: row.job_name,
           item_category: row.item_category || "",
           item_sub_category: row.item_sub_category || "",
           item_name: row.item_name || "",
           size: row.size || "",
-          total_consumed: row.total_consumed,
+          total_consumed: row.consumed_qty || row.total_consumed,
           unit_rate: row.unit_rate ? formatCurrency(row.unit_rate) : "LKR 0.00",
           total_value: row.total_value ? formatCurrency(row.total_value) : "LKR 0.00"
         }));
@@ -475,12 +550,10 @@ exports.generateInventoryReport = async (req, res) => {
         );
 
         formattedRows.push({
-          ...(report_type === "MATERIAL_CONSUMPTION_BY_JOB" && {
-            job_id: "TOTAL",
-            job_number: "TOTAL",
-            job_name: "",
-          }),
-          item_category: report_type === "MATERIAL_CONSUMPTION_BY_JOB" ? "" : "TOTAL",
+          job_id: "TOTAL",
+          job_number: "TOTAL",
+          job_name: "",
+          item_category: "",
           item_sub_category: "",
           item_name: "",
           size: "",
