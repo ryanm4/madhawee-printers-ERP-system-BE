@@ -336,7 +336,7 @@ exports.generateInventoryReport = async (req, res) => {
               in_h.job_id,
               COALESCE(j.job_number, IF(in_h.job_id IS NOT NULL, CONCAT('MPL/', LPAD(in_h.job_id, 4, '0'), '/26/TIEP'), '-')) AS job_number,
               j.job_name,
-              COALESCE(in_h.issue_note_number, IF(in_h.id IS NOT NULL, CONCAT('ISN/', LPAD(in_h.id, 4, '0')), '-')) AS issue_note_no,
+              IF(in_h.id IS NOT NULL, CONCAT('ISN/', LPAD(in_h.id, 4, '0')), '-') AS issue_note_no,
               DATE_FORMAT(in_h.date, '%Y-%m-%d') AS issue_date,
               CAST(SUM(CAST(ini.quantity AS DECIMAL(10,2))) AS DECIMAL(10,2)) AS consumed_qty,
               CAST(mi.unit_price AS DECIMAL(10,2)) AS unit_rate,
@@ -346,7 +346,7 @@ exports.generateInventoryReport = async (req, res) => {
           LEFT JOIN jobs j ON j.job_id = in_h.job_id
           LEFT JOIN main_inventory mi ON mi.item_id = ini.item_id OR (ini.item_id IS NULL AND mi.item_name = ini.item_name)
           ${matSummaryWhere}
-          GROUP BY mi.item_id, mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_of_measure, mi.unit_price, in_h.job_id, j.job_number, j.job_name, in_h.id, in_h.issue_note_number, DATE(in_h.date)
+          GROUP BY mi.item_id, mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_of_measure, mi.unit_price, in_h.job_id, j.job_number, j.job_name, in_h.id, DATE(in_h.date)
           ORDER BY item_name ASC, consumed_qty DESC
         `;
         break;
