@@ -20,6 +20,17 @@ exports.generateInventoryReport = async (req, res) => {
        * ==========================================================
        */
       case "CURRENT_STOCK":
+        let currentStockWhere = "WHERE 1=1";
+        params = [from_date, to_date];
+        if (item_category && item_category !== "ALL") {
+          currentStockWhere += " AND mi.item_category = ?";
+          params.push(item_category);
+        }
+        if (item_sub_category && item_sub_category !== "ALL") {
+          currentStockWhere += " AND mi.item_sub_category = ?";
+          params.push(item_sub_category);
+        }
+
         query = `
           SELECT
               mi.item_category,
@@ -49,10 +60,9 @@ exports.generateInventoryReport = async (req, res) => {
               ) AS available_qty
 
           FROM main_inventory mi
+          ${currentStockWhere}
           ORDER BY mi.item_name;
         `;
-
-        params = [from_date, to_date];
         break;
 
       /**
@@ -94,6 +104,17 @@ exports.generateInventoryReport = async (req, res) => {
        * ==========================================================
        */
       case "STOCK_AGING":
+        let agingWhere = "WHERE 1=1";
+        params = [];
+        if (item_category && item_category !== "ALL") {
+          agingWhere += " AND mi.item_category = ?";
+          params.push(item_category);
+        }
+        if (item_sub_category && item_sub_category !== "ALL") {
+          agingWhere += " AND mi.item_sub_category = ?";
+          params.push(item_sub_category);
+        }
+
         query = `
           SELECT
               mi.item_category,
@@ -177,10 +198,9 @@ exports.generateInventoryReport = async (req, res) => {
               END AS aging_bucket
 
           FROM main_inventory mi
+          ${agingWhere}
           ORDER BY age_days DESC;
         `;
-
-        params = [];
         break;
 
       /**
@@ -189,6 +209,17 @@ exports.generateInventoryReport = async (req, res) => {
        * ==========================================================
        */
       case "LOW_STOCK":
+        let lowStockWhere = "WHERE 1=1";
+        params = [];
+        if (item_category && item_category !== "ALL") {
+          lowStockWhere += " AND mi.item_category = ?";
+          params.push(item_category);
+        }
+        if (item_sub_category && item_sub_category !== "ALL") {
+          lowStockWhere += " AND mi.item_sub_category = ?";
+          params.push(item_sub_category);
+        }
+
         query = `
           SELECT
               mi.item_category,
@@ -200,14 +231,13 @@ exports.generateInventoryReport = async (req, res) => {
               mi.reorder_level
 
           FROM main_inventory mi
-
+          ${lowStockWhere}
           HAVING available_qty < CAST(mi.reorder_level AS DECIMAL(10,2))
 
           ORDER BY available_qty ASC;
         `;
-
-        params = [];
         break;
+
       /**
        * ==========================================================
        * GRN listing
@@ -220,6 +250,15 @@ exports.generateInventoryReport = async (req, res) => {
           grnWhereClause += " AND grn.supplier_name = ?";
           params.push(supplier_name);
         }
+        if (item_category && item_category !== "ALL") {
+          grnWhereClause += " AND mi.item_category = ?";
+          params.push(item_category);
+        }
+        if (item_sub_category && item_sub_category !== "ALL") {
+          grnWhereClause += " AND mi.item_sub_category = ?";
+          params.push(item_sub_category);
+        }
+
         query = `
           SELECT
               grn.id AS grn_id,
@@ -239,6 +278,7 @@ exports.generateInventoryReport = async (req, res) => {
           ORDER BY grn.received_date DESC
         `;
         break;
+
       /**
        * ==========================================================
        * Total GRN value summary
@@ -263,7 +303,6 @@ exports.generateInventoryReport = async (req, res) => {
         params = [from_date, to_date];
         break;
 
-
       /**
       * ==========================================================
       * Total material usage across jobs
@@ -276,6 +315,14 @@ exports.generateInventoryReport = async (req, res) => {
         if (item_id && item_id !== "ALL") {
           matSummaryWhere += " AND mi.item_id = ?";
           params.push(item_id);
+        }
+        if (item_category && item_category !== "ALL") {
+          matSummaryWhere += " AND mi.item_category = ?";
+          params.push(item_category);
+        }
+        if (item_sub_category && item_sub_category !== "ALL") {
+          matSummaryWhere += " AND mi.item_sub_category = ?";
+          params.push(item_sub_category);
         }
 
         query = `
@@ -296,12 +343,12 @@ exports.generateInventoryReport = async (req, res) => {
           ORDER BY total_consumed DESC
         `;
         break;
+
       /**
       * ==========================================================
       * Job-wise material breakdown
       * ==========================================================
       */
-
       case "MATERIAL_CONSUMPTION_BY_JOB":
         let matByJobWhere = "WHERE DATE(in_h.date) BETWEEN ? AND ?";
         params = [from_date, to_date];
@@ -310,9 +357,20 @@ exports.generateInventoryReport = async (req, res) => {
           matByJobWhere += " AND in_h.job_id = ?";
           params.push(job_id);
         }
+        if (item_category && item_category !== "ALL") {
+          matByJobWhere += " AND mi.item_category = ?";
+          params.push(item_category);
+        }
+        if (item_sub_category && item_sub_category !== "ALL") {
+          matByJobWhere += " AND mi.item_sub_category = ?";
+          params.push(item_sub_category);
+        }
 
         query = `
           SELECT
+              in_h.job_id,
+              COALESCE(j.job_number, CONCAT('MPL/', LPAD(in_h.job_id, 4, '0'), '/26/TIEP')) AS job_number,
+              j.job_name,
               mi.item_category,
               mi.item_sub_category,
               COALESCE(mi.item_name, ini.item_name) AS item_name,
@@ -323,9 +381,10 @@ exports.generateInventoryReport = async (req, res) => {
               CAST((SUM(CAST(ini.quantity AS DECIMAL(10,2))) * CAST(mi.unit_price AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS total_value
           FROM \`issue_note-items\` ini
           LEFT JOIN \`issue-notes\` in_h ON in_h.id = ini.issue_note_id
+          LEFT JOIN jobs j ON j.job_id = in_h.job_id
           LEFT JOIN main_inventory mi ON mi.item_id = ini.item_id OR (ini.item_id IS NULL AND mi.item_name = ini.item_name)
           ${matByJobWhere}
-          GROUP BY mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_price
+          GROUP BY in_h.job_id, j.job_number, j.job_name, mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_price
           ORDER BY total_consumed DESC
         `;
         break;
@@ -396,10 +455,18 @@ exports.generateInventoryReport = async (req, res) => {
         report_type === "MATERIAL_CONSUMPTION_BY_JOB"
       ) {
         const formattedRows = rows.map(row => ({
-          item_name: row.size ? `${row.item_sub_category || ''} ${row.item_name} (${row.size})` : `${row.item_sub_category || ''} ${row.item_name}`,
+          ...(report_type === "MATERIAL_CONSUMPTION_BY_JOB" && {
+            job_id: row.job_id,
+            job_number: row.job_number,
+            job_name: row.job_name,
+          }),
+          item_category: row.item_category || "",
+          item_sub_category: row.item_sub_category || "",
+          item_name: row.item_name || "",
+          size: row.size || "",
           total_consumed: row.total_consumed,
-          unit_rate: formatCurrency(row.unit_rate),
-          total_value: formatCurrency(row.total_value)
+          unit_rate: row.unit_rate ? formatCurrency(row.unit_rate) : "LKR 0.00",
+          total_value: row.total_value ? formatCurrency(row.total_value) : "LKR 0.00"
         }));
 
         const total_value = rows.reduce(
@@ -408,7 +475,15 @@ exports.generateInventoryReport = async (req, res) => {
         );
 
         formattedRows.push({
-          item_name: "TOTAL",
+          ...(report_type === "MATERIAL_CONSUMPTION_BY_JOB" && {
+            job_id: "TOTAL",
+            job_number: "TOTAL",
+            job_name: "",
+          }),
+          item_category: report_type === "MATERIAL_CONSUMPTION_BY_JOB" ? "" : "TOTAL",
+          item_sub_category: "",
+          item_name: "",
+          size: "",
           total_consumed: null,
           unit_rate: null,
           total_value: formatCurrency(total_value)
