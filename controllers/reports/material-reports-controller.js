@@ -339,14 +339,21 @@ exports.generateInventoryReport = async (req, res) => {
               IF(in_h.id IS NOT NULL, CONCAT('ISN/', LPAD(in_h.id, 4, '0')), '-') AS issue_note_no,
               DATE_FORMAT(in_h.date, '%Y-%m-%d') AS issue_date,
               CAST(SUM(CAST(ini.quantity AS DECIMAL(10,2))) AS DECIMAL(10,2)) AS consumed_qty,
-              CAST(mi.unit_price AS DECIMAL(10,2)) AS unit_rate,
-              CAST((SUM(CAST(ini.quantity AS DECIMAL(10,2))) * CAST(mi.unit_price AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS total_value
+              CAST(
+                COALESCE(
+                  NULLIF(CAST(mi.unit_price AS DECIMAL(10,2)), 0),
+                  NULLIF(CAST(mi.rate AS DECIMAL(10,2)), 0),
+                  (SELECT gi.rate FROM grn_items gi WHERE (gi.item_id = mi.item_id OR (gi.item_name IS NOT NULL AND gi.item_name = mi.item_name)) AND gi.rate > 0 ORDER BY gi.id DESC LIMIT 1),
+                  (SELECT poi.unit_price FROM po_items_details poi WHERE (poi.item_id = mi.item_id OR (poi.item_name IS NOT NULL AND poi.item_name = mi.item_name)) AND poi.unit_price > 0 ORDER BY poi.id DESC LIMIT 1),
+                  0
+                ) AS DECIMAL(10,2)
+              ) AS unit_rate
           FROM \`issue_note-items\` ini
           LEFT JOIN \`issue-notes\` in_h ON in_h.id = ini.issue_note_id
           LEFT JOIN jobs j ON j.job_id = in_h.job_id
           LEFT JOIN main_inventory mi ON mi.item_id = ini.item_id OR (ini.item_id IS NULL AND mi.item_name = ini.item_name)
           ${matSummaryWhere}
-          GROUP BY mi.item_id, mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_of_measure, mi.unit_price, in_h.job_id, j.job_number, j.job_name, in_h.id, DATE(in_h.date)
+          GROUP BY mi.item_id, mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_of_measure, mi.unit_price, mi.rate, in_h.job_id, j.job_number, j.job_name, in_h.id, DATE(in_h.date)
           ORDER BY item_name ASC, consumed_qty DESC
         `;
         break;
@@ -384,14 +391,21 @@ exports.generateInventoryReport = async (req, res) => {
               mi.size,
               '' AS material_type,
               CAST(SUM(CAST(ini.quantity AS DECIMAL(10,2))) AS DECIMAL(10,2)) AS total_consumed,
-              CAST(mi.unit_price AS DECIMAL(10,2)) AS unit_rate,
-              CAST((SUM(CAST(ini.quantity AS DECIMAL(10,2))) * CAST(mi.unit_price AS DECIMAL(10,2))) AS DECIMAL(15,2)) AS total_value
+              CAST(
+                COALESCE(
+                  NULLIF(CAST(mi.unit_price AS DECIMAL(10,2)), 0),
+                  NULLIF(CAST(mi.rate AS DECIMAL(10,2)), 0),
+                  (SELECT gi.rate FROM grn_items gi WHERE (gi.item_id = mi.item_id OR (gi.item_name IS NOT NULL AND gi.item_name = mi.item_name)) AND gi.rate > 0 ORDER BY gi.id DESC LIMIT 1),
+                  (SELECT poi.unit_price FROM po_items_details poi WHERE (poi.item_id = mi.item_id OR (poi.item_name IS NOT NULL AND poi.item_name = mi.item_name)) AND poi.unit_price > 0 ORDER BY poi.id DESC LIMIT 1),
+                  0
+                ) AS DECIMAL(10,2)
+              ) AS unit_rate
           FROM \`issue_note-items\` ini
           LEFT JOIN \`issue-notes\` in_h ON in_h.id = ini.issue_note_id
           LEFT JOIN jobs j ON j.job_id = in_h.job_id
           LEFT JOIN main_inventory mi ON mi.item_id = ini.item_id OR (ini.item_id IS NULL AND mi.item_name = ini.item_name)
           ${matByJobWhere}
-          GROUP BY in_h.job_id, j.job_number, j.job_name, mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_price
+          GROUP BY in_h.job_id, j.job_number, j.job_name, mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_price, mi.rate
           ORDER BY total_consumed DESC
         `;
         break;
@@ -480,7 +494,12 @@ exports.generateInventoryReport = async (req, res) => {
 
           const itemGroup = itemMap.get(itemKey);
           const cQty = Number(row.consumed_qty || 0);
-          const tVal = Number(row.total_value || 0);
+          const uRate = Number(row.unit_rate || 0);
+          const tVal = cQty * uRate;
+
+          if (!itemGroup.unit_rate_raw && uRate > 0) {
+            itemGroup.unit_rate_raw = uRate;
+          }
 
           itemGroup.total_consumed_num += cQty;
           itemGroup.total_value_num += tVal;
@@ -493,7 +512,7 @@ exports.generateInventoryReport = async (req, res) => {
               issue_note_no: row.issue_note_no || "-",
               issue_date: row.issue_date || "-",
               consumed_qty: cQty,
-              unit_rate: row.unit_rate ? formatCurrency(row.unit_rate) : "LKR 0.00",
+              unit_rate: uRate ? formatCurrency(uRate) : "LKR 0.00",
               total_value: formatCurrency(tVal)
             });
           }
@@ -531,21 +550,26 @@ exports.generateInventoryReport = async (req, res) => {
 
         return res.status(200).json({ data: formattedRows });
       } else if (report_type === "MATERIAL_CONSUMPTION_BY_JOB") {
-        const formattedRows = rows.map(row => ({
-          job_id: row.job_id,
-          job_number: row.job_number,
-          job_name: row.job_name,
-          item_category: row.item_category || "",
-          item_sub_category: row.item_sub_category || "",
-          item_name: row.item_name || "",
-          size: row.size || "",
-          total_consumed: row.consumed_qty || row.total_consumed,
-          unit_rate: row.unit_rate ? formatCurrency(row.unit_rate) : "LKR 0.00",
-          total_value: row.total_value ? formatCurrency(row.total_value) : "LKR 0.00"
-        }));
+        const formattedRows = rows.map(row => {
+          const cQty = Number(row.total_consumed || row.consumed_qty || 0);
+          const uRate = Number(row.unit_rate || 0);
+          const tVal = cQty * uRate;
+          return {
+            job_id: row.job_id,
+            job_number: row.job_number,
+            job_name: row.job_name,
+            item_category: row.item_category || "",
+            item_sub_category: row.item_sub_category || "",
+            item_name: row.item_name || "",
+            size: row.size || "",
+            total_consumed: cQty,
+            unit_rate: uRate ? formatCurrency(uRate) : "LKR 0.00",
+            total_value: formatCurrency(tVal)
+          };
+        });
 
-        const total_value = rows.reduce(
-          (sum, row) => sum + Number(row.total_value || 0),
+        const total_value = formattedRows.reduce(
+          (sum, row) => sum + (typeof row.total_value === 'string' ? parseFloat(row.total_value.replace(/[^0-9.-]/g, '')) || 0 : Number(row.total_value || 0)),
           0
         );
 
