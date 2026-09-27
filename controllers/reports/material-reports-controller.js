@@ -343,8 +343,7 @@ exports.generateInventoryReport = async (req, res) => {
                 COALESCE(
                   NULLIF(CAST(mi.unit_price AS DECIMAL(10,2)), 0),
                   NULLIF(CAST(mi.rate AS DECIMAL(10,2)), 0),
-                  (SELECT gi.rate FROM grn_items gi WHERE (gi.item_id = mi.item_id OR (gi.item_name IS NOT NULL AND gi.item_name = mi.item_name)) AND gi.rate > 0 ORDER BY gi.id DESC LIMIT 1),
-                  (SELECT poi.unit_price FROM po_items_details poi WHERE (poi.item_id = mi.item_id OR (poi.item_name IS NOT NULL AND poi.item_name = mi.item_name)) AND poi.unit_price > 0 ORDER BY poi.id DESC LIMIT 1),
+                  (SELECT gi.rate FROM grn_items gi WHERE ((mi.item_id IS NOT NULL AND gi.item_id = mi.item_id) OR (gi.item_name IS NOT NULL AND gi.item_name = mi.item_name)) AND gi.rate > 0 ORDER BY gi.id DESC LIMIT 1),
                   0
                 ) AS DECIMAL(10,2)
               ) AS unit_rate
@@ -395,8 +394,7 @@ exports.generateInventoryReport = async (req, res) => {
                 COALESCE(
                   NULLIF(CAST(mi.unit_price AS DECIMAL(10,2)), 0),
                   NULLIF(CAST(mi.rate AS DECIMAL(10,2)), 0),
-                  (SELECT gi.rate FROM grn_items gi WHERE (gi.item_id = mi.item_id OR (gi.item_name IS NOT NULL AND gi.item_name = mi.item_name)) AND gi.rate > 0 ORDER BY gi.id DESC LIMIT 1),
-                  (SELECT poi.unit_price FROM po_items_details poi WHERE (poi.item_id = mi.item_id OR (poi.item_name IS NOT NULL AND poi.item_name = mi.item_name)) AND poi.unit_price > 0 ORDER BY poi.id DESC LIMIT 1),
+                  (SELECT gi.rate FROM grn_items gi WHERE ((mi.item_id IS NOT NULL AND gi.item_id = mi.item_id) OR (gi.item_name IS NOT NULL AND gi.item_name = mi.item_name)) AND gi.rate > 0 ORDER BY gi.id DESC LIMIT 1),
                   0
                 ) AS DECIMAL(10,2)
               ) AS unit_rate
