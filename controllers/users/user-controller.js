@@ -4,7 +4,9 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 
 exports.userRegistration = async (req, res, next) => {
-    const { name, email, password, user_role } = req.body;
+    const { name, email, password, user_role, phone } = req.body;
+
+    const phoneValue = phone || null;
 
     const emailValue = email || null;
 
@@ -16,13 +18,13 @@ exports.userRegistration = async (req, res, next) => {
 
         const query = `
       INSERT INTO users
-        (name, email, password, user_role, created_on, updated_on)
-      VALUES (?, ?, ?, ?, ?, ?)
+        (name, email, phone, password, user_role, created_on, updated_on)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
 
         pool.query(
             query,
-            [name, emailValue, hashedPassword, user_role, now, now],
+            [name, emailValue, phoneValue, hashedPassword, user_role, now, now],
             (err) => {
                 if (err) {
                     if (err.code === "ER_DUP_ENTRY") {
@@ -214,6 +216,7 @@ exports.getAllUsers = (req, res, next) => {
             id,
             name,
             email,
+            phone,
             user_role,
             created_on,
             updated_on
@@ -236,7 +239,7 @@ exports.getAllUsers = (req, res, next) => {
 exports.updateUser = (req, res) => {
     const { id } = req.params;
 
-    const { name, email, user_role } = req.body;
+    const { name, email, user_role, phone } = req.body;
 
     if (!id) {
         return res.status(400).json({ message: "User ID is required" });
@@ -258,6 +261,11 @@ exports.updateUser = (req, res) => {
     if (user_role) {
         fields.push("user_role = ?");
         values.push(user_role);
+    }
+
+    if (phone !== undefined) {
+        fields.push("phone = ?");
+        values.push(phone || null);
     }
 
     if (fields.length === 0) {

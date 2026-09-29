@@ -16,6 +16,7 @@ exports.getAllQuotes = (req, res, next) => {
     q.tax_type_id,
     q.currency,
     q.marketing_person,
+    u.phone AS marketing_person_phone,
     q.contact_person,
     q.notes,
     q.status,
@@ -26,6 +27,8 @@ exports.getAllQuotes = (req, res, next) => {
   FROM quotations q
   JOIN customers c
     ON q.customer_id = c.customer_id
+  LEFT JOIN users u
+    ON q.marketing_person = u.name
   ORDER BY q.created_on DESC
 `;
 
@@ -61,6 +64,7 @@ exports.getQuoteById = (req, res, next) => {
     q.net_total,
     q.contact_person,
     q.marketing_person,
+    u.phone AS marketing_person_phone,
     q.notes,
     q.created_on,
     q.created_by,
@@ -75,6 +79,8 @@ exports.getQuoteById = (req, res, next) => {
     qi.item_unit_discount,
     qi.item_total_price
 FROM quotations q
+LEFT JOIN users u
+    ON q.marketing_person = u.name
 LEFT JOIN quote_items qi
     ON q.quote_id = qi.quote_id
 WHERE q.quote_id = ?;
@@ -108,6 +114,7 @@ WHERE q.quote_id = ?;
       net_total: results[0].net_total,
       contact_person: results[0].contact_person,
       marketing_person: results[0].marketing_person,
+      marketing_person_phone: results[0].marketing_person_phone || null,
       notes: results[0].notes,
       created_on: results[0].created_on,
       created_by: results[0].created_by,

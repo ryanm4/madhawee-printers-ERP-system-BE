@@ -32,6 +32,9 @@ const authRouter = express.Router();
  *               email:
  *                 type: string
  *                 example: john@email.com
+ *               phone:
+ *                 type: string
+ *                 example: "0771234567"
  *               password:
  *                 type: string
  *                 example: 123456
@@ -138,6 +141,8 @@ authRouter.route("/users").get(authController.getAllUsers);
  *               email:
  *                 type: string
  *               user_role:
+ *                 type: string
+ *               phone:
  *                 type: string
  *     responses:
  *       200:
