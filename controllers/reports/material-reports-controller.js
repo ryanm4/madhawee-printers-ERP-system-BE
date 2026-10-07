@@ -403,7 +403,7 @@ exports.generateInventoryReport = async (req, res) => {
           LEFT JOIN jobs j ON j.job_id = in_h.job_id
           LEFT JOIN main_inventory mi ON mi.item_id = ini.item_id OR (ini.item_id IS NULL AND mi.item_name = ini.item_name)
           ${matByJobWhere}
-          GROUP BY in_h.job_id, j.job_number, j.job_name, mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_price, mi.rate
+          GROUP BY in_h.job_id, j.job_number, j.job_name, mi.item_id, mi.item_category, mi.item_sub_category, mi.item_name, ini.item_name, mi.size, mi.unit_price, mi.rate
           ORDER BY total_consumed DESC
         `;
         break;
