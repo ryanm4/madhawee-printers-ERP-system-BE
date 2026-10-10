@@ -196,22 +196,26 @@ exports.generateReport = async (req, res) => {
     }
 
     /* -------------------- CUSTOMER FILTER -------------------- */
-    if (filters.customer_id) {
-      if (reportType === 'DISPATCH_INSIGHTS') {
-        query += ` AND d.customer_id = ?`;
-      } else if (['JOB_PRODUCTION', 'QUOTATION_SUMMARY', 'QUOTE_TO_PO_CONVERSION', 'QUOTATION_BY_CUSTOMER'].includes(reportType)) {
-        query += ` AND ${baseAlias}.customer_id = ?`;
-      }
+    // Only add the value when the condition is added too, so later placeholders stay aligned
+    const customerColumn = {
+      DISPATCH_INSIGHTS: 'd.customer_id',
+      JOB_PRODUCTION: 'j.customer_id',
+      QUOTATION_SUMMARY: 'q.customer_id',
+      QUOTE_TO_PO_CONVERSION: 'q.customer_id',
+      QUOTATION_BY_CUSTOMER: 'q.customer_id',
+      QUOTATION_BY_SALESPERSON: 'q.customer_id',
+      QUOTATION_WEEKLY: 'q.customer_id',
+      QUOTATION_MONTHLY: 'q.customer_id',
+    }[reportType];
+    if (filters.customer_id && customerColumn) {
+      query += ` AND ${customerColumn} = ?`;
       params.push(filters.customer_id);
     }
 
-    
     /* -------------------- SALESPERSON FILTER -------------------- */
-    if (filters.salesperson && baseAlias) {
-      if (['QUOTATION_SUMMARY', 'QUOTE_TO_PO_CONVERSION', 'QUOTATION_BY_CUSTOMER', 'QUOTATION_BY_SALESPERSON'].includes(reportType)) {
-        query += ` AND ${baseAlias}.marketing_person = ?`;
-        params.push(filters.salesperson);
-      }
+    if (filters.salesperson && baseAlias === 'q') {
+      query += ` AND q.marketing_person = ?`;
+      params.push(filters.salesperson);
     }
 
     /* -------------------- PRODUCT TYPE FILTER -------------------- */

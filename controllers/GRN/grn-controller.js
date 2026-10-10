@@ -268,7 +268,6 @@ exports.createGRN = (req, res) => {
 
                 if (existing) {
                   const oldQty = Number(existing.quantity) || 0;
-                  const oldRate = Number(existing.rate) || 0;
 
                   const grnQty = Number(item.quantity);
                   const grnRate = Number(item.rate);
@@ -517,7 +516,6 @@ exports.updateGRN = (req, res) => {
 
                             if (existing) {
                               const oldQty = Number(existing.quantity) || 0;
-                              const oldRate = Number(existing.rate) || 0;
 
                               const grnQty = Number(item.quantity);
                               const grnRate = Number(item.rate);

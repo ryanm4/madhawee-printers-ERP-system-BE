@@ -21,7 +21,8 @@ exports.generateInventoryReport = async (req, res) => {
        */
       case "CURRENT_STOCK":
         let currentStockWhere = "WHERE 1=1";
-        params = [from_date, to_date];
+        // Stock on hand as at the "to" date: everything received up to then, less everything issued up to then
+        params = [to_date, to_date];
         if (item_category && item_category !== "ALL") {
           currentStockWhere += " AND mi.item_category = ?";
           params.push(item_category);
@@ -47,7 +48,7 @@ exports.generateInventoryReport = async (req, res) => {
                   INNER JOIN goods_receive_notes grn
                       ON grn.id = gi.grn_no
                   WHERE gi.item_id = mi.item_id
-                  AND DATE(grn.received_date) BETWEEN ? AND ?
+                  AND DATE(grn.received_date) <= ?
                 ),0
               )
               -
@@ -55,7 +56,9 @@ exports.generateInventoryReport = async (req, res) => {
                 (
                   SELECT SUM(ini.quantity)
                   FROM \`issue_note-items\` ini
+                  INNER JOIN \`issue-notes\` isn ON isn.id = ini.issue_note_id
                   WHERE ini.item_id = mi.item_id
+                  AND DATE(isn.date) <= ?
                 ),0
               ) AS available_qty
 

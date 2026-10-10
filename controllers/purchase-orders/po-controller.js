@@ -474,9 +474,6 @@ exports.updatePurchaseOrder = (req, res, next) => {
     po_items = [],
   } = req.body;
 
-  const toMysqlDatetime = (d) =>
-    d ? new Date(d).toISOString().slice(0, 19).replace("T", " ") : null;
-
   pool.getConnection((err, connection) => {
     if (err) return next(err);
 
@@ -525,7 +522,7 @@ exports.updatePurchaseOrder = (req, res, next) => {
         poId,
       ];
 
-      connection.query(poQuery, poValues, (err, result) => {
+      connection.query(poQuery, poValues, (err) => {
         if (err) {
           return connection.rollback(() => {
             connection.release();

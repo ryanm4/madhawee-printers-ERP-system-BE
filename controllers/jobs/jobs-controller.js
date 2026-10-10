@@ -1,10 +1,25 @@
 const pool = require("../../sql-connection");
 
+// Used when the document_number_formats table is missing or has no row for a type
 const JOB_NUMBER_TEMPLATES = {
   TIEP: "MPL/####/YY/TIEP",
   "NON_TIEP": "MPL/####/YY/NON_TIEP",
   MP: "MP/####/YY/PETHUM",
 };
+
+/** The job number format for a type, as set in Settings > Document numbering */
+function loadJobNumberTemplate(connection, type, callback) {
+  connection.query(
+    "SELECT template FROM document_number_formats WHERE doc_type = ?",
+    [type],
+    (err, rows) => {
+      if (!err && rows && rows.length > 0 && rows[0].template) {
+        return callback(rows[0].template);
+      }
+      callback(JOB_NUMBER_TEMPLATES[type]);
+    }
+  );
+}
 
 // FIX 1: Robustly handle undefined/null/invalid date values
 function getTwoDigitYear(dateValue) {
@@ -89,8 +104,7 @@ exports.getNextSequence = (req, res, next) => {
     .toUpperCase()
     .replace(/\s+/g, "-");
 
-  const template = JOB_NUMBER_TEMPLATES[type];
-  if (!template) {
+  if (!JOB_NUMBER_TEMPLATES[type]) {
     return res.status(400).json({
       message: `Invalid type '${req.params.type}'. Use TIEP, NON-TIEP, or MP.`,
     });
@@ -101,25 +115,27 @@ exports.getNextSequence = (req, res, next) => {
   pool.getConnection((err, connection) => {
     if (err) return next(err);
 
-    getNextJobSequence(connection, template, (err, nextSequence) => {
-      connection.release();
-      if (err) return next(err);
+    loadJobNumberTemplate(connection, type, (template) =>
+      getNextJobSequence(connection, template, (err, nextSequence) => {
+        connection.release();
+        if (err) return next(err);
 
-      // Split template around #### to get prefix and suffix
-      const parts = template.split("####");
-      const prefix = parts[0].replace("YY", year);
-      const suffix = parts[1].replace("YY", year);
-      const paddedSequence = String(nextSequence).padStart(4, "0");
-      const preview = prefix + paddedSequence + suffix;
+        // Split template around #### to get prefix and suffix
+        const parts = template.split("####");
+        const prefix = parts[0].replace("YY", year);
+        const suffix = parts[1].replace("YY", year);
+        const paddedSequence = String(nextSequence).padStart(4, "0");
+        const preview = prefix + paddedSequence + suffix;
 
-      res.status(200).json({
-        template,
-        prefix,
-        suffix,
-        nextSequence,
-        preview,
-      });
-    });
+        res.status(200).json({
+          template,
+          prefix,
+          suffix,
+          nextSequence,
+          preview,
+        });
+      })
+    );
   });
 };
 

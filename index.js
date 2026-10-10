@@ -19,6 +19,7 @@ const reportRouter = require("./routes/reports/report-routes");
 const grnRouter = require("./routes/GRN/grn-route");
 const issueNoteRouter = require("./routes/issue-notes/issue-note-route");
 const currencyRouter = require("./routes/currency-route");
+const settingsRouter = require("./routes/settings/settings-route");
 
 dotenv.config({ path: "./config.env" });
 const port = process.env.PORT || 3000;
@@ -62,16 +63,6 @@ app.use("/api/v1/auth", authRouter);
 // ✅ 5. Token verification middleware
 app.use('/api',verifyToken);
 
-app.get('/debug-swagger', (req, res) => {
-  const path = require('path');
-  const swaggerUiPath = require('swagger-ui-express');
-  res.json({
-    swaggerUiExpressVersion: require('./node_modules/swagger-ui-express/package.json').version,
-    nodeEnv: process.env.NODE_ENV,
-    port: process.env.PORT,
-  });
-});
-
 // ✅ 6. Protected routes
 app.use("/api/v1/quotes", quoteRouter);
 app.use("/api/v1/customers", customerRouter);
@@ -83,6 +74,7 @@ app.use("/api/v1/inventory", inventoryRouter);
 app.use("/api/v1/reports", reportRouter);
 app.use("/api/v1/grn", grnRouter);
 app.use("/api/v1/issue-notes", issueNoteRouter);
+app.use("/api/v1/settings", settingsRouter);
 
 
 

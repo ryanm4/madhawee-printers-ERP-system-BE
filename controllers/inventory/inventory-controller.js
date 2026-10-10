@@ -137,7 +137,6 @@ exports.updateInventoryItem = (req, res, next) => {
     status,
     remarks,
     unit_price,
-    rate,
     updated_by,
   } = req.body;
 
