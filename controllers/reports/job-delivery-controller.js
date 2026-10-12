@@ -2,7 +2,8 @@ const pool = require("../../sql-connection");
 
 /**
  * Job Delivery Summary: each job's ordered quantity against everything dispatched for it so far,
- * for jobs opened in the date range. Rows come sorted by customer so the report can group them.
+ * for jobs opened in the date range that are not completed yet. Rows come sorted by customer so
+ * the report can group them.
  *
  * Body: { filters: { fromDate, toDate, customer_id?, job_name? } }
  */
@@ -13,7 +14,8 @@ exports.getJobDeliverySummary = async (req, res) => {
     return res.status(400).json({ message: "fromDate and toDate are required" });
   }
 
-  const conditions = ["j.job_open_date BETWEEN ? AND ?"];
+  // Completed jobs are fully delivered, so only the ones still open are listed
+  const conditions = ["j.job_open_date BETWEEN ? AND ?", "(j.status IS NULL OR UPPER(TRIM(j.status)) <> 'COMPLETED')"];
   const params = [fromDate, toDate];
 
   if (customer_id) {
