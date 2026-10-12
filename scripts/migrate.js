@@ -19,13 +19,18 @@ function statements(sql) {
 
 async function run() {
   const files = fs.readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
-  const db = pool.promise();
-  for (const file of files) {
-    const sql = fs.readFileSync(path.join(dir, file), "utf8");
-    for (const statement of statements(sql)) {
-      await db.query(statement);
+  // One connection throughout, so session variables and prepared statements carry between statements
+  const db = await pool.promise().getConnection();
+  try {
+    for (const file of files) {
+      const sql = fs.readFileSync(path.join(dir, file), "utf8");
+      for (const statement of statements(sql)) {
+        await db.query(statement);
+      }
+      console.log(`Applied ${file}`);
     }
-    console.log(`Applied ${file}`);
+  } finally {
+    db.release();
   }
 }
 

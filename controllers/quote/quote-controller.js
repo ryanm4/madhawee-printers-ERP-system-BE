@@ -1,5 +1,14 @@
 const pool = require("../../sql-connection");
 
+/** How much of the bank account a quotation prints */
+const BANK_DETAILS = ["NONE", "FULL", "HIDE_NUMBER"];
+
+/** The bank choice from a request, or null for any part that wasn't sent or isn't valid */
+const bankChoice = (body) => ({
+  bank_details: BANK_DETAILS.includes(body.bank_details) ? body.bank_details : null,
+  bank_account_id: Number(body.bank_account_id) > 0 ? Number(body.bank_account_id) : null,
+});
+
 exports.getAllQuotes = (req, res, next) => {
   const query = `
   SELECT 
@@ -66,6 +75,8 @@ exports.getQuoteById = (req, res, next) => {
     q.marketing_person,
     u.phone AS marketing_person_phone,
     q.notes,
+    q.bank_details,
+    q.bank_account_id,
     q.created_on,
     q.created_by,
     q.updated_on,
@@ -116,6 +127,8 @@ WHERE q.quote_id = ?;
       marketing_person: results[0].marketing_person,
       marketing_person_phone: results[0].marketing_person_phone || null,
       notes: results[0].notes,
+      bank_details: results[0].bank_details || "NONE",
+      bank_account_id: results[0].bank_account_id ?? null,
       created_on: results[0].created_on,
       created_by: results[0].created_by,
       updated_on: results[0].updated_on,
@@ -194,14 +207,17 @@ exports.createQuote = (req, res, next) => {
     contact_person,
     marketing_person,
     notes,
+    bank_details,
+    bank_account_id,
     created_on,
     created_by,
     updated_on,
     updated_by,
     status
   )
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NULL, ?, ?)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NULL, ?, ?)
 `;
+      const bank = bankChoice(req.body);
       const quoteValues = [
         customer_id,
         type_id,
@@ -216,6 +232,8 @@ exports.createQuote = (req, res, next) => {
         contact_person,
         marketing_person,
         notes,
+        bank.bank_details || "NONE",
+        bank.bank_account_id,
         created_by,
         updated_by,
         status,
@@ -322,6 +340,9 @@ exports.updateQuote = (req, res, next) => {
       }
 
       /* ---------- UPDATE QUOTATION ---------- */
+      // Bank columns change only when the edit form sends them, so a status change keeps them
+      const sendsBank = req.body.bank_details !== undefined;
+      const bank = bankChoice(req.body);
       const updateQuoteQuery = `
   UPDATE quotations
   SET
@@ -338,6 +359,7 @@ exports.updateQuote = (req, res, next) => {
     contact_person = ?,
     marketing_person = ?,
     notes = ?,
+    ${sendsBank ? "bank_details = ?, bank_account_id = ?," : ""}
     updated_on = NOW(),
     updated_by = ?,
     status = ?
@@ -358,6 +380,7 @@ exports.updateQuote = (req, res, next) => {
         contact_person,
         marketing_person,
         notes,
+        ...(sendsBank ? [bank.bank_details || "NONE", bank.bank_account_id] : []),
         updated_by,
         status,
         quoteId,
