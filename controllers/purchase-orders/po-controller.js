@@ -369,7 +369,7 @@ exports.createPurchaseOrder = (req, res, next) => {
           customer_po,
           sales_ref,
           currency
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, NOW(), ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, NOW()), ?, NOW(), ?, NOW(), ?, ?, ?, ?, ?)
       `;
 
       const poValues = [
@@ -380,13 +380,14 @@ exports.createPurchaseOrder = (req, res, next) => {
         po_date,
         delivery_date,
         TC_E_PR_No,
-        approved_on,
-        approved_by,
+        approved_on || null,
+        approved_by || created_by || null,
         created_by,
         updated_by,
-        status,
+        // Orders are approved as they are entered; they complete themselves when all their jobs are done
+        "APPROVED",
         customer_po,
-        sales_ref,  
+        sales_ref,
         currency,
       ];
 
@@ -493,11 +494,11 @@ exports.updatePurchaseOrder = (req, res, next) => {
           po_date = ?,
           delivery_date = ?,
           TC_E_PR_No = ?,
-          approved_on = ?,
-          approved_by = ?,
+          approved_on = COALESCE(?, approved_on),
+          approved_by = COALESCE(?, approved_by),
           updated_on = NOW(),
           updated_by = ?,
-          status = ?,
+          status = COALESCE(?, IF(status = 'COMPLETED', 'COMPLETED', 'APPROVED')),
           customer_po = ?,
           sales_ref = ?,
           currency = ?
@@ -512,10 +513,11 @@ exports.updatePurchaseOrder = (req, res, next) => {
         po_date,
         delivery_date,
         TC_E_PR_No,
-        approved_on,
-        approved_by,
+        approved_on || null,
+        approved_by || null,
         updated_by,
-        status,
+        // Only Approved or Completed are kept as sent; anything else (the old Created) leaves it approved
+        ["APPROVED", "COMPLETED"].includes(status) ? status : null,
         customer_po,
         sales_ref,
         currency,

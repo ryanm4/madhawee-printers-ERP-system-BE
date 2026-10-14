@@ -1,4 +1,9 @@
 const pool = require("../../sql-connection");
+const {
+  syncPurchaseOrderStatus,
+  syncPurchaseOrderStatusForJob,
+  syncAllPurchaseOrderStatuses,
+} = require("../purchase-orders/po-status");
 
 // Used when the document_number_formats table is missing or has no row for a type
 const JOB_NUMBER_TEMPLATES = {
@@ -492,11 +497,14 @@ exports.createJob = (req, res, next) => {
             connection.release();
             if (err) return next(err);
 
-            res.status(201).json({
-              message: "Job created successfully",
-              job_id: jobId,
-              job_number: finalJobNumber,
-            });
+            // A new job on a completed order means it is open again
+            syncPurchaseOrderStatus(po_id).then(() =>
+              res.status(201).json({
+                message: "Job created successfully",
+                job_id: jobId,
+                job_number: finalJobNumber,
+              })
+            );
           });
         }
       });
@@ -709,9 +717,9 @@ exports.updateJob = (req, res, next) => {
           connection.release();
           if (err) return next(err);
 
-          res
-            .status(200)
-            .json({ message: "Job updated successfully", job_id: jobId });
+          syncPurchaseOrderStatusForJob(jobId).then(() =>
+            res.status(200).json({ message: "Job updated successfully", job_id: jobId })
+          );
         });
       }
     });
@@ -820,11 +828,14 @@ exports.deleteJob = (req, res, next) => {
                   connection.release();
                   if (err) return next(err);
 
-                  res.status(200).json({
-                    status: "success",
-                    message: "Job deleted successfully",
-                    job_id: jobId,
-                  });
+                  // The job is gone, so its order can't be looked up: check them all
+                  syncAllPurchaseOrderStatuses().then(() =>
+                    res.status(200).json({
+                      status: "success",
+                      message: "Job deleted successfully",
+                      job_id: jobId,
+                    })
+                  );
                 });
               }
             );
@@ -960,10 +971,13 @@ exports.updateJobStatus = (req, res) => {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    return res.status(200).json({
-      message: "Job status updated successfully",
-      job_id: jobId,
-      status: status,
-    });
+    // Completing the last job completes its purchase order
+    return syncPurchaseOrderStatusForJob(jobId).then(() =>
+      res.status(200).json({
+        message: "Job status updated successfully",
+        job_id: jobId,
+        status: status,
+      })
+    );
   });
 };
