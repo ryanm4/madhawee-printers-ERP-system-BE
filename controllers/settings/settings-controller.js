@@ -85,6 +85,7 @@ const OPTION_LISTS = [
   { key: "coating_type", label: "Coating types", description: "Finishes offered on job tickets." },
   { key: "plate_status", label: "Plate status", description: "Where a job's plates are.", is_workflow_state: true },
   { key: "ink_status", label: "Ink status", description: "Whether a job's ink is in stock.", is_workflow_state: true },
+  { key: "machine_process", label: "Production processes", description: "The stages a job goes through. Machines and the production schedule are grouped by these." },
 ];
 
 const isListKey = (key) => OPTION_LISTS.some((list) => list.key === key);

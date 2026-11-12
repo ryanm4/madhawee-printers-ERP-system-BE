@@ -20,6 +20,7 @@ const grnRouter = require("./routes/GRN/grn-route");
 const issueNoteRouter = require("./routes/issue-notes/issue-note-route");
 const currencyRouter = require("./routes/currency-route");
 const settingsRouter = require("./routes/settings/settings-route");
+const productionScheduleRouter = require("./routes/production-schedule/production-schedule-route");
 
 dotenv.config({ path: "./config.env" });
 const port = process.env.PORT || 3000;
@@ -75,6 +76,7 @@ app.use("/api/v1/reports", reportRouter);
 app.use("/api/v1/grn", grnRouter);
 app.use("/api/v1/issue-notes", issueNoteRouter);
 app.use("/api/v1/settings", settingsRouter);
+app.use("/api/v1/production-schedule", productionScheduleRouter);
 
 
 
