@@ -40,9 +40,11 @@ function checkRange(start, end) {
 /**
  * What already occupies this machine between start and end, if anything.
  * Returns a sentence naming the clash, or null when the time is free.
+ * Jobs may overlap each other (the board shows the double booking in red), so bookings
+ * only check downtime; downtime checks both.
  */
-async function findClash(conn, { machineId, start, end, ignoreSlotId = 0, ignoreDowntimeId = 0 }) {
-  const [slots] = await conn.query(
+async function findClash(conn, { machineId, start, end, ignoreSlotId = 0, ignoreDowntimeId = 0, includeSlots = true }) {
+  const [slots] = !includeSlots ? [[]] : await conn.query(
     `SELECT s.id, s.stage, j.job_number, ${fmt("s.start_at", "start_at")}, ${fmt("s.end_at", "end_at")}
      FROM schedule_slots s
      LEFT JOIN jobs j ON j.job_id = s.job_id
@@ -271,7 +273,12 @@ exports.createSlot = async (req, res) => {
     ]);
     if (machines.length === 0) return res.status(400).json({ message: "That machine is not available" });
 
-    const clash = await findClash(db(), { machineId: values.machine_id, start: values.start_at, end: values.end_at });
+    const clash = await findClash(db(), {
+      machineId: values.machine_id,
+      start: values.start_at,
+      end: values.end_at,
+      includeSlots: false,
+    });
     if (clash) return res.status(409).json({ message: clash });
 
     const [result] = await db().query("INSERT INTO schedule_slots SET ?", [
@@ -293,6 +300,7 @@ exports.updateSlot = async (req, res) => {
       start: values.start_at,
       end: values.end_at,
       ignoreSlotId: Number(req.params.id),
+      includeSlots: false,
     });
     if (clash) return res.status(409).json({ message: clash });
 
